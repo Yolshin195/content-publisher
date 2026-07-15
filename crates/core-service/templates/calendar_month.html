@@ -5,7 +5,11 @@
     <a class="nav-btn" href="/calendar/month/{{ prev_year }}/{{ prev_month }}">‹ Пред</a>
     <h1>{{ month }} / {{ year }}</h1>
     <a class="nav-btn" href="/calendar/month/{{ next_year }}/{{ next_month }}">След ›</a>
+    <a class="nav-btn" href="/calendar/list/month/{{ year }}/{{ month }}">Список</a>
     <a class="new-article-btn" href="/articles/new">+ Новая статья</a>
+</div>
+<div class="weekday-row">
+    <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span>
 </div>
 <div class="calendar-grid month-grid">
     {% for week in weeks %}

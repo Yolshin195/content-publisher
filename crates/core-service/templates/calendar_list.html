@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+{% block title %}{{ title }} — список{% endblock %}
+{% block content %}
+<div class="calendar-header">
+    <a class="nav-btn" href="{{ prev_url }}">‹ Пред</a>
+    <h1>{{ title }}</h1>
+    <a class="nav-btn" href="{{ next_url }}">След ›</a>
+    <div class="view-switch">
+        <a class="view-switch-item{% if granularity == "month" %} active{% endif %}" href="{{ list_month_url }}">Месяц</a>
+        <a class="view-switch-item{% if granularity == "week" %} active{% endif %}" href="{{ list_week_url }}">Неделя</a>
+    </div>
+    <a class="nav-btn" href="{{ grid_url }}">Сетка</a>
+    <a class="new-article-btn" href="/articles/new">+ Новая статья</a>
+</div>
+
+<div class="agenda-list">
+    {% for group in groups %}
+    <div class="agenda-day{% if group.is_today %} today{% endif %}">
+        <div class="agenda-day-label">
+            <span class="agenda-day-number">{{ group.day }}</span>
+            <span class="agenda-day-caption">{{ group.month_caption }}, {{ group.weekday }}</span>
+        </div>
+        <div class="agenda-day-items">
+            {% for article in group.articles %}
+            <a class="agenda-item state-{{ article.state }}" href="/articles/{{ article.id }}/edit">
+                <span class="agenda-item-time">{{ article.time }}</span>
+                <span class="agenda-item-title">{{ article.title }}</span>
+                <span class="badge state-{{ article.state }}">{{ article.state }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if groups.is_empty() %}
+    <div class="agenda-empty">
+        <p>На этот период не запланировано статей.</p>
+        <a class="new-article-btn" href="/articles/new">+ Новая статья</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

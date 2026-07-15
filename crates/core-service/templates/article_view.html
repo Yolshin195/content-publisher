@@ -2,7 +2,7 @@
 {% block title %}{{ title }}{% endblock %}
 {% block content %}
 <h1>{{ title }}</h1>
-<p class="article-state">Статус: {{ state }}</p>
+<p class="article-state">Статус: <span class="badge state-{{ state }}">{{ state }}</span></p>
 <div class="article-content">{{ content_html|safe }}</div>
 
 <h2>Статусы публикации</h2>
@@ -14,5 +14,5 @@
     {% endfor %}
     </tbody>
 </table>
-<a href="/articles/{{ article_id }}/edit">Редактировать</a>
+<p><a class="btn-secondary" href="/articles/{{ article_id }}/edit">Редактировать</a></p>
 {% endblock %}

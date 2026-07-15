@@ -3,12 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <link rel="icon" href="data:,">
     <title>{% block title %}Content Publisher{% endblock %}</title>
     <link rel="stylesheet" href="/static/css/calendar.css">
 </head>
 <body>
     <header class="topbar">
         <a href="/" class="brand">Content Publisher</a>
+        <nav class="topbar-nav">
+            <a href="/">Календарь</a>
+            <a href="/calendar/list">Список</a>
+        </nav>
     </header>
     <main class="container">
         {% block content %}{% endblock %}

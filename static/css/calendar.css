@@ -1,5 +1,5 @@
 /* =========================================================
-   Content Publisher — design tokens
+   Content Publisher â€” design tokens
    ========================================================= */
 :root {
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -86,6 +86,7 @@ a { color: var(--color-primary); }
 .topbar {
   display: flex;
   align-items: center;
+  gap: var(--space-5);
   background: var(--color-surface);
   padding: 14px 24px;
   border-bottom: 1px solid var(--color-border);
@@ -93,6 +94,21 @@ a { color: var(--color-primary); }
   top: 0;
   z-index: 10;
 }
+
+.topbar-nav {
+  display: flex;
+  gap: 2px;
+}
+.topbar-nav a {
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.topbar-nav a:hover { background: #f5f6f8; color: var(--color-text); }
 
 .brand {
   display: inline-flex;
@@ -156,7 +172,7 @@ form button[type="submit"] {
 .new-article-btn:hover,
 form button[type="submit"]:hover { background: var(--color-primary-hover); border-color: var(--color-primary-hover); }
 
-/* generic <button> inside forms that isn't the submit (e.g. "+ Добавить ссылку") */
+/* generic <button> inside forms that isn't the submit (e.g. "+ Ð”Ð¾Ð±Ð°Ð²Ð¸Ñ‚ÑŒ ÑÑÑ‹Ð»ÐºÑƒ") */
 form button:not([type="submit"]),
 #add-video-link {
   padding: 6px 12px;
@@ -187,6 +203,8 @@ form button:not([type="submit"]):hover,
 .calendar-header {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  row-gap: var(--space-2);
   gap: var(--space-3);
   margin-bottom: var(--space-5);
 }
@@ -449,6 +467,127 @@ tbody tr:hover td { background: #fafbfc; }
 .article-content a { color: var(--color-primary); }
 
 /* =========================================================
+   View switch (ÐœÐµÑÑÑ† / ÐÐµÐ´ÐµÐ»Ñ toggle on the agenda page)
+   ========================================================= */
+.view-switch {
+  display: inline-flex;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.view-switch-item {
+  text-decoration: none;
+  padding: 7px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.view-switch-item + .view-switch-item { border-left: 1px solid var(--color-border-strong); }
+.view-switch-item:hover { background: #fafbfc; color: var(--color-text); }
+.view-switch-item.active { background: var(--color-primary); color: #fff; }
+
+/* =========================================================
+   Agenda / list view (Ð¿Ð¾ Ð°Ð½Ð°Ð»Ð¾Ð³Ð¸Ð¸ Ñ Google Calendar "Schedule")
+   ========================================================= */
+.agenda-list {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 0 var(--space-5);
+}
+
+.agenda-day {
+  display: flex;
+  gap: var(--space-5);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.agenda-day:last-child { border-bottom: none; }
+
+.agenda-day-label {
+  flex: 0 0 84px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding-top: 2px;
+}
+.agenda-day-number {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.agenda-day.today .agenda-day-number { background: var(--color-primary); color: #fff; }
+.agenda-day-caption {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.agenda-day-items {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.agenda-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid transparent;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.agenda-item:hover { box-shadow: var(--shadow-sm); border-color: var(--color-border-strong); }
+
+.agenda-item-time {
+  flex: 0 0 44px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.agenda-item-title {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.agenda-item.state-draft { border-left-color: var(--state-draft-accent); }
+.agenda-item.state-scheduled { border-left-color: var(--state-scheduled-accent); }
+.agenda-item.state-archived { border-left-color: var(--state-archived-accent); }
+
+.agenda-empty {
+  text-align: center;
+  padding: 72px var(--space-4);
+  color: var(--color-text-secondary);
+}
+.agenda-empty p { margin: 0 0 var(--space-4); }
+
+/* =========================================================
    Responsive
    ========================================================= */
 @media (max-width: 640px) {
@@ -457,4 +596,10 @@ tbody tr:hover td { background: #fafbfc; }
   .calendar-header h1 { flex-basis: 100%; order: -1; margin-bottom: var(--space-2); }
   .video-link-row { flex-wrap: wrap; }
   .video-link-row select { flex-basis: 100%; }
+
+  .agenda-list { padding: 0 var(--space-3); }
+  .agenda-day { flex-direction: column; gap: var(--space-2); }
+  .agenda-day-label { flex-direction: row; gap: 8px; align-items: center; text-align: left; }
+  .agenda-day-caption { margin-top: 0; }
+  .agenda-item-title { white-space: normal; }
 }
