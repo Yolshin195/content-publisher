@@ -1,0 +1,32 @@
+[package]
+name = "telegram-publisher"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+shared-contracts = { path = "../shared-contracts" }
+
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }
+
+# Готовая библиотека для работы с Telegram Bot API — используем только клиент
+# запросов (Bot + Requester), без диспетчинга входящих апдейтов, т.к. сервису
+# нужно лишь отправлять сообщения.
+teloxide = { version = "0.13", default-features = false, features = ["rustls"] }
+url = "2"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+thiserror = "1"
+anyhow = "1"
+
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+tower-http = { version = "0.6", features = ["trace"] }
+
+dotenvy = "0.15"
+
+utoipa = { version = "5", features = ["axum_extras", "uuid", "chrono"] }
+utoipa-swagger-ui = { version = "9.0.2", features = ["axum"] }

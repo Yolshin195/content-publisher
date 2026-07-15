@@ -1,0 +1,54 @@
+{% extends "layout.html" %}
+{% block title %}{% if is_edit %}Редактирование статьи{% else %}Новая статья{% endif %}{% endblock %}
+{% block content %}
+<h1>{% if is_edit %}Редактирование статьи{% else %}Новая статья{% endif %}</h1>
+<form id="article-form" data-article-id="{{ article_id }}" data-is-edit="{{ is_edit }}">
+    <label>Заголовок
+        <input type="text" name="title" value="{{ title }}" required>
+    </label>
+    <label>Краткое описание
+        <textarea name="excerpt">{{ excerpt }}</textarea>
+    </label>
+    <label>Контент (HTML)
+        <textarea name="content_html" rows="10">{{ content_html }}</textarea>
+    </label>
+
+    <fieldset>
+        <legend>Картинка (необязательно)</legend>
+        <input type="file" id="cover-upload" accept="image/*">
+        <input type="hidden" name="cover_media_id" id="cover-media-id">
+    </fieldset>
+
+    <fieldset id="video-links">
+        <legend>Ссылки на видео (необязательно, можно несколько зеркал одного ролика)</legend>
+        {% for link in video_links %}
+        <div class="video-link-row">
+            <select name="video_platform">
+                <option value="youtube">YouTube</option>
+                <option value="vk_video">VK Video</option>
+                <option value="rutube">Rutube</option>
+                <option value="vimeo">Vimeo</option>
+                <option value="other">Другое</option>
+            </select>
+            <input type="url" name="video_url" value="{{ link.url }}">
+        </div>
+        {% endfor %}
+        <button type="button" id="add-video-link">+ Добавить ссылку</button>
+    </fieldset>
+
+    <fieldset>
+        <legend>Публикация</legend>
+        <label>Дата и время публикации
+            <input type="datetime-local" name="scheduled_at" value="{{ default_date }}">
+        </label>
+        <label>Целевые площадки</label>
+        {% for target in targets %}
+        <label class="target-checkbox">
+            <input type="checkbox" name="target_ids" value="{{ target.id }}"> {{ target.name }}
+        </label>
+        {% endfor %}
+    </fieldset>
+
+    <button type="submit">Сохранить</button>
+</form>
+{% endblock %}

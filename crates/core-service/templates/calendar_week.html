@@ -1,0 +1,20 @@
+{% extends "layout.html" %}
+{% block title %}Неделя {{ week }} / {{ year }}{% endblock %}
+{% block content %}
+<div class="calendar-header">
+    <a class="nav-btn" href="/calendar/week/{{ prev_year }}/{{ prev_week }}">‹ Пред</a>
+    <h1>Неделя {{ week }} / {{ year }}</h1>
+    <a class="nav-btn" href="/calendar/week/{{ next_year }}/{{ next_week }}">След ›</a>
+    <a class="new-article-btn" href="/articles/new">+ Новая статья</a>
+</div>
+<div class="calendar-grid week-grid">
+    {% for day in days %}
+    <div class="calendar-cell">
+        <div class="day-number"><a href="/articles/new?date={{ day.date }}">{{ day.date }}</a></div>
+        {% for article in day.articles %}
+        <a class="article-badge state-{{ article.state }}" href="/articles/{{ article.id }}/edit">{{ article.title }}</a>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

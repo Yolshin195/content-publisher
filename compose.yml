@@ -1,0 +1,96 @@
+# Полный стек в контейнерах: Postgres + core-service + telegram-publisher.
+# Оба сервиса собираются из одного универсального Dockerfile (см. его шапку)
+# через --build-arg APP_NAME=..., поэтому здесь у каждого свой блок `build.args`.
+#
+# Перед запуском:
+#   cp crates/core-service/.env.example       crates/core-service/.env
+#   cp crates/telegram-publisher/.env.example crates/telegram-publisher/.env
+#   # и вписать в telegram-publisher/.env реальный TELEGRAM_BOT_TOKEN
+#
+# Запуск:
+#   docker compose up -d --build
+#   podman compose up -d --build
+#
+# Значения DATABASE_URL / PUBLISHER_TELEGRAM_URL ниже в `environment:` намеренно
+# переопределяют то, что лежит в .env (там — адреса для локального запуска вне
+# докера, здесь — имена сервисов из этого же compose-файла как хостнеймы).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: core_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d core_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - content-publisher
+    restart: unless-stopped
+
+  telegram-publisher:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_NAME: telegram-publisher
+    image: content-publisher/telegram-publisher
+    env_file:
+      - crates/telegram-publisher/.env
+    environment:
+      SERVER_HOST: "0.0.0.0"
+      SERVER_PORT: "8081"
+      PORT: "8081" # читается HEALTHCHECK-ом из Dockerfile
+    ports:
+      - "8081:8081"
+    networks:
+      - content-publisher
+    restart: unless-stopped
+
+  core-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_NAME: core-service
+    image: content-publisher/core-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      telegram-publisher:
+        condition: service_started
+    env_file:
+      - crates/core-service/.env
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/core_db
+      PUBLISHER_TELEGRAM_URL: http://telegram-publisher:8081
+      SERVER_HOST: "0.0.0.0"
+      SERVER_PORT: "8080"
+      PORT: "8080"
+    ports:
+      - "8080:8080"
+    networks:
+      - content-publisher
+    restart: unless-stopped
+    # У core-service пока нет отдельного эндпоинта /health (см. README сервиса),
+    # поэтому переопределяем HEALTHCHECK из Dockerfile на заведомо живой путь,
+    # чтобы контейнер не висел в статусе "unhealthy". Как только появится
+    # GET /health — эту секцию можно удалить и вернуться к healthcheck из образа.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/docs || exit 1"]
+      interval: 10s
+      timeout: 3s
+      start_period: 5s
+      retries: 5
+
+networks:
+  content-publisher:
+    driver: bridge
+
+volumes:
+  postgres_data:

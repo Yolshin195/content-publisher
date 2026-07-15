@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Content Publisher{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/calendar.css">
+</head>
+<body>
+    <header class="topbar">
+        <a href="/" class="brand">Content Publisher</a>
+    </header>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+    <script src="/static/js/calendar.js"></script>
+</body>
+</html>

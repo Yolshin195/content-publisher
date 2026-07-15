@@ -1,0 +1,18 @@
+{% extends "layout.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<h1>{{ title }}</h1>
+<p class="article-state">Статус: {{ state }}</p>
+<div class="article-content">{{ content_html|safe }}</div>
+
+<h2>Статусы публикации</h2>
+<table>
+    <thead><tr><th>Площадка</th><th>Статус</th></tr></thead>
+    <tbody>
+    {% for task in tasks %}
+        <tr><td>{{ task.target_name }}</td><td>{{ task.status }}</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+<a href="/articles/{{ article_id }}/edit">Редактировать</a>
+{% endblock %}

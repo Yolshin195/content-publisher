@@ -1,0 +1,30 @@
+# Только инфраструктура (Postgres) — для локальной разработки, когда сервисы
+# запускаются напрямую через `cargo run`, а не в контейнерах.
+#
+# Использование:
+#   docker compose -f compose.infra.yml up -d
+#   podman compose -f compose.infra.yml up -d
+#   ./prepare-sqlx.sh
+#   cargo run --bin core-service
+#   cargo run --bin telegram-publisher
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: content-publisher-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: core_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d core_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres_data:
