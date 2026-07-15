@@ -1,0 +1,12 @@
+target
+.vscode
+scripts
+Dockerfile
+docker-compose.infra.yml
+docker-compose.yml
+.dockerignore
+.git
+.gitignore
+
+.env
+tree.py
