@@ -1,5 +1,17 @@
-/target
-.env
-*.log
+```
+# Dependencies
+target/
 
-.DS_store
+# Logs and temp files
+*.log
+*.tmp
+
+# Editors
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.local
+.env.*
+```

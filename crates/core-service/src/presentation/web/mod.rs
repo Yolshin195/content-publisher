@@ -1,5 +1,6 @@
 pub mod article_pages;
 pub mod calendar_pages;
+pub mod target_pages;
 
 use axum::routing::get;
 use axum::Router;
@@ -17,4 +18,7 @@ pub fn router() -> Router<AppState> {
         .route("/articles/new", get(article_pages::new_article_page))
         .route("/articles/{id}/edit", get(article_pages::edit_article_page))
         .route("/articles/{id}", get(article_pages::view_article_page))
+        .route("/targets", get(target_pages::list_targets_page))
+        .route("/targets/new", get(target_pages::new_target_page))
+        .route("/targets/{id}/edit", get(target_pages::edit_target_page))
 }

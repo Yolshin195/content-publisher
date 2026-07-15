@@ -588,6 +588,262 @@ tbody tr:hover td { background: #fafbfc; }
 .agenda-empty p { margin: 0 0 var(--space-4); }
 
 /* =========================================================
+   Targets page
+   ========================================================= */
+.targets-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+.targets-header h1 {
+  margin: 0;
+}
+
+.targets-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.targets-table th,
+.targets-table td {
+  text-align: left;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 14px;
+}
+.targets-table th {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-muted);
+  background: #fafbfc;
+}
+.targets-table tbody tr:last-child td { border-bottom: none; }
+.targets-table tbody tr:hover td { background: #fafbfc; }
+
+.platform-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+.platform-telegram {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+.platform-vk {
+  background: #e8eaf6;
+  color: #3f51b5;
+}
+.platform-x {
+  background: #f5f5f5;
+  color: #424242;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.status-active {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+.status-inactive {
+  background: #f5f5f5;
+  color: #757575;
+}
+
+.actions-cell {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 72px var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+}
+.empty-state p { margin: 0 0 var(--space-4); }
+
+/* Modal */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+.modal-dialog {
+  position: relative;
+  z-index: 101;
+  max-width: 400px;
+  width: 90%;
+}
+.modal-content {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.modal-header {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+.modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.modal-body {
+  padding: var(--space-5);
+}
+.modal-body p { margin: 0 0 var(--space-3); }
+.text-warning {
+  color: var(--color-danger);
+  font-size: 13px;
+}
+.modal-footer {
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* Form styles for targets */
+.form-group {
+  margin-bottom: var(--space-5);
+}
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+.form-group input[type="text"],
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 9px 11px;
+  font: inherit;
+  font-weight: 400;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-tint);
+}
+.form-group textarea {
+  resize: vertical;
+  min-height: 120px;
+  font-family: monospace;
+}
+.help-text {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 400;
+  cursor: pointer;
+}
+.checkbox-label input {
+  width: auto;
+  margin: 0;
+}
+.error-text {
+  color: var(--color-danger);
+  font-size: 12px;
+  margin-top: 6px;
+}
+.form-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+/* Button variants */
+.btn {
+  display: inline-block;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  border: 1px solid transparent;
+}
+.btn-primary {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+}
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+.btn-secondary {
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border-strong);
+}
+.btn-secondary:hover {
+  border-color: var(--color-text-muted);
+  color: var(--color-text);
+}
+.btn-danger {
+  background: var(--color-danger);
+  color: #fff;
+  border-color: var(--color-danger);
+}
+.btn-danger:hover {
+  background: #c62828;
+  border-color: #c62828;
+}
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 13px;
+}
+
+/* =========================================================
    Responsive
    ========================================================= */
 @media (max-width: 640px) {
@@ -602,4 +858,10 @@ tbody tr:hover td { background: #fafbfc; }
   .agenda-day-label { flex-direction: row; gap: 8px; align-items: center; text-align: left; }
   .agenda-day-caption { margin-top: 0; }
   .agenda-item-title { white-space: normal; }
+
+  .targets-header { flex-direction: column; align-items: flex-start; }
+  .targets-table { font-size: 13px; }
+  .targets-table th,
+  .targets-table td { padding: 10px 8px; }
+  .actions-cell { flex-direction: column; gap: 4px; }
 }

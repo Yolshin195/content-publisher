@@ -1,0 +1,53 @@
+{% extends "layout.html" %}
+{% block title %}{% if is_edit %}Редактирование площадки{% else %}Новая площадка{% endif %}{% endblock %}
+{% block content %}
+<h1>{% if is_edit %}Редактирование площадки{% else %}Новая площадка{% endif %}</h1>
+
+<form id="target-form" data-target-id="{{ target_id }}" data-is-edit="{{ is_edit }}">
+    <div class="form-group">
+        <label for="display_name">Название площадки</label>
+        <input type="text" id="display_name" name="display_name" value="{{ display_name }}" required placeholder="Например: Telegram-канал «Новости»">
+    </div>
+
+    <div class="form-group">
+        <label for="platform">Платформа</label>
+        <select id="platform" name="platform" required {% if is_edit %}disabled{% endif %}>
+            <option value="">Выберите платформу</option>
+            <option value="telegram" {% if platform == "telegram" %}selected{% endif %}>Telegram</option>
+            <option value="vk" {% if platform == "vk" %}selected{% endif %}>VKontakte</option>
+            <option value="x" {% if platform == "x" %}selected{% endif %}>X (Twitter)</option>
+        </select>
+        {% if is_edit %}
+        <p class="help-text">Платформу нельзя изменить после создания. При необходимости создайте новую площадку.</p>
+        {% endif %}
+    </div>
+
+    <div class="form-group">
+        <label for="external_id">Внешний ID</label>
+        <input type="text" id="external_id" name="external_id" value="{{ external_id }}" required placeholder="ID канала, группы или аккаунта в системе платформы">
+        <p class="help-text">Например: username канала в Telegram или group_id во VK</p>
+    </div>
+
+    <div class="form-group">
+        <label class="checkbox-label">
+            <input type="checkbox" id="is_active" name="is_active" {% if is_active %}checked{% endif %}>
+            Активна
+        </label>
+        <p class="help-text">Неактивные площадки не будут использоваться при публикации</p>
+    </div>
+
+    <div class="form-group">
+        <label for="config_json">Конфигурация (JSON)</label>
+        <textarea id="config_json" name="config_json" rows="8" placeholder='{}'>{{ config_json }}</textarea>
+        <p class="help-text">Дополнительные параметры в формате JSON. Оставьте пустым, если не требуется.</p>
+        <p id="json-error" class="error-text" style="display: none;">Ошибка: неверный формат JSON</p>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Сохранить</button>
+        <a href="/targets" class="btn btn-secondary">Отмена</a>
+    </div>
+</form>
+
+<script src="/static/js/targets.js"></script>
+{% endblock %}
