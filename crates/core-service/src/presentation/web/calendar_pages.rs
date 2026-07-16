@@ -11,7 +11,7 @@ pub struct DayArticleView {
     pub id: String,
     pub title: String,
     pub state: String,
-    pub platform: Option<String>,
+    pub platform: String,
     pub scheduled_at: Option<String>,
 }
 
@@ -111,7 +111,7 @@ fn build_month_grid(year: i32, month: u32, days: &[DaySummary]) -> Vec<Vec<DayCe
                             id: a.id.to_string(), 
                             title: a.title.clone(), 
                             state: a.state.clone(),
-                            platform: a.target_platforms.first().cloned().map(|p| p.to_lowercase()),
+                            platform: a.target_platforms.first().cloned().unwrap_or_else(|| "generic".to_string()).to_lowercase(),
                             scheduled_at: a.scheduled_at.map(|t| t.format("%Y-%m-%dT%H:%M:%S").to_string()),
                         })
                         .collect()
@@ -168,7 +168,7 @@ pub async fn week_page(State(state): State<AppState>, Path((year, week)): Path<(
                         id: a.id.to_string(), 
                         title: a.title, 
                         state: a.state,
-                        platform: a.target_platforms.first().cloned().map(|p| p.to_lowercase()),
+                        platform: a.target_platforms.first().cloned().unwrap_or_else(|| "generic".to_string()).to_lowercase(),
                         scheduled_at: a.scheduled_at.map(|t| t.format("%Y-%m-%dT%H:%M:%S").to_string()),
                     })
                     .collect(),
