@@ -1,4 +1,3 @@
-```
 # Dependencies
 target/
 
@@ -14,4 +13,5 @@ target/
 .env
 .env.local
 .env.*
-```
+
+.DS_store
