@@ -1,6 +1,8 @@
 use askama::Template;
 use axum::extract::{Path, Query, State};
 use axum::response::{Html, IntoResponse};
+use chrono::Datelike;
+use chrono::Utc;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -37,6 +39,8 @@ struct ArticleFormTemplate {
     default_date: String,
     targets: Vec<TargetOption>,
     video_links: Vec<VideoLinkOption>,
+    month: u32,
+    year: i32,
 }
 
 pub async fn new_article_page(State(state): State<AppState>, Query(q): Query<NewArticleQuery>) -> impl IntoResponse {
@@ -49,6 +53,7 @@ pub async fn new_article_page(State(state): State<AppState>, Query(q): Query<New
         .map(|t| TargetOption { id: t.id.to_string(), name: t.display_name })
         .collect();
 
+    let now = Utc::now();
     let tpl = ArticleFormTemplate {
         is_edit: false,
         article_id: String::new(),
@@ -58,6 +63,8 @@ pub async fn new_article_page(State(state): State<AppState>, Query(q): Query<New
         default_date: q.date.unwrap_or_default(),
         targets,
         video_links: Vec::new(),
+        month: now.month(),
+        year: now.year(),
     };
     Html(tpl.render().unwrap_or_else(|e| format!("template error: {e}")))
 }
@@ -77,6 +84,7 @@ pub async fn edit_article_page(State(state): State<AppState>, Path(id): Path<Uui
         .map(|t| TargetOption { id: t.id.to_string(), name: t.display_name })
         .collect();
 
+    let now = Utc::now();
     let tpl = ArticleFormTemplate {
         is_edit: true,
         article_id: article.id.to_string(),
@@ -89,6 +97,8 @@ pub async fn edit_article_page(State(state): State<AppState>, Path(id): Path<Uui
             .into_iter()
             .map(|v| VideoLinkOption { platform: v.platform.as_str().to_string(), url: v.url })
             .collect(),
+        month: now.month(),
+        year: now.year(),
     };
     Html(tpl.render().unwrap_or_else(|e| format!("template error: {e}")))
 }
@@ -101,6 +111,8 @@ struct ArticleViewTemplate {
     content_html: String,
     state: String,
     tasks: Vec<TaskRow>,
+    month: u32,
+    year: i32,
 }
 
 pub async fn view_article_page(State(state): State<AppState>, Path(id): Path<Uuid>) -> impl IntoResponse {
@@ -121,12 +133,15 @@ pub async fn view_article_page(State(state): State<AppState>, Path(id): Path<Uui
         task_rows.push(TaskRow { target_name, status: t.status.as_str().to_string() });
     }
 
+    let now = Utc::now();
     let tpl = ArticleViewTemplate {
         article_id: article.id.to_string(),
         title: article.title,
         content_html: article.content_html,
         state: article.state.as_str().to_string(),
         tasks: task_rows,
+        month: now.month(),
+        year: now.year(),
     };
     Html(tpl.render().unwrap_or_else(|e| format!("template error: {e}")))
 }

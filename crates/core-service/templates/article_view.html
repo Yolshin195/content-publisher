@@ -1,5 +1,18 @@
 {% extends "layout.html" %}
 {% block title %}{{ title }}{% endblock %}
+
+{% block secondary_toolbar %}
+<button class="today-button" onclick="window.location.href='/calendar/month/{{ year }}/{{ month }}'">Today</button>
+<div class="nav-arrows">
+    <button class="nav-arrow prev" aria-label="Previous" onclick="history.back()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+    </button>
+</div>
+<div class="current-period-label">Article View</div>
+{% endblock %}
+
 {% block content %}
 <h1>{{ title }}</h1>
 <p class="article-state">Статус: <span class="badge state-{{ state }}">{{ state }}</span></p>

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use chrono::{DateTime, Datelike, Duration, NaiveDate, TimeZone, Utc};
 use uuid::Uuid;
 
-use super::ports::ArticleRepository;
+use super::ports::{ArticleRepository, TargetRepository, TaskRepository};
 use crate::domain::{Article, DomainError};
 
 pub struct DayArticleSummary {
@@ -11,6 +11,7 @@ pub struct DayArticleSummary {
     pub title: String,
     pub state: String,
     pub scheduled_at: Option<DateTime<Utc>>,
+    pub target_platforms: Vec<String>,
 }
 
 pub struct DaySummary {
@@ -24,11 +25,13 @@ pub struct DaySummary {
 /// реализуется в presentation/web, здесь — только агрегация данных.
 pub struct CalendarService {
     articles: Arc<dyn ArticleRepository>,
+    tasks: Arc<dyn TaskRepository>,
+    targets: Arc<dyn TargetRepository>,
 }
 
 impl CalendarService {
-    pub fn new(articles: Arc<dyn ArticleRepository>) -> Self {
-        Self { articles }
+    pub fn new(articles: Arc<dyn ArticleRepository>, tasks: Arc<dyn TaskRepository>, targets: Arc<dyn TargetRepository>) -> Self {
+        Self { articles, tasks, targets }
     }
 
     pub async fn month_view(&self, year: i32, month: u32) -> Result<Vec<DaySummary>, DomainError> {
@@ -45,7 +48,28 @@ impl CalendarService {
         let to = Utc.from_utc_datetime(&next_month.and_hms_opt(0, 0, 0).unwrap());
 
         let articles = self.articles.list_by_date_range(from, to).await?;
-        Ok(group_by_day(&articles, start, next_month))
+        
+        // Fetch all targets once for platform lookup
+        let targets_map: std::collections::HashMap<Uuid, String> = self.targets.list().await?
+            .into_iter()
+            .map(|t| (t.id, t.platform.as_str().to_string()))
+            .collect();
+        
+        let mut days = group_by_day(&articles, start, next_month);
+        
+        // Enrich with target platform info from publication tasks
+        for day in &mut days {
+            for article in &mut day.articles {
+                if let Ok(tasks) = self.tasks.list_by_article(article.id).await {
+                    article.target_platforms = tasks
+                        .iter()
+                        .filter_map(|task| targets_map.get(&task.target_id).cloned())
+                        .collect();
+                }
+            }
+        }
+        
+        Ok(days)
     }
 
     pub async fn week_view(&self, year: i32, week: u32) -> Result<Vec<DaySummary>, DomainError> {
@@ -59,7 +83,28 @@ impl CalendarService {
         let to = Utc.from_utc_datetime(&end.and_hms_opt(0, 0, 0).unwrap());
 
         let articles = self.articles.list_by_date_range(from, to).await?;
-        Ok(group_by_day(&articles, start, end))
+        
+        // Fetch all targets once for platform lookup
+        let targets_map: std::collections::HashMap<Uuid, String> = self.targets.list().await?
+            .into_iter()
+            .map(|t| (t.id, t.platform.as_str().to_string()))
+            .collect();
+        
+        let mut days = group_by_day(&articles, start, end);
+        
+        // Enrich with target platform info from publication tasks
+        for day in &mut days {
+            for article in &mut day.articles {
+                if let Ok(tasks) = self.tasks.list_by_article(article.id).await {
+                    article.target_platforms = tasks
+                        .iter()
+                        .filter_map(|task| targets_map.get(&task.target_id).cloned())
+                        .collect();
+                }
+            }
+        }
+        
+        Ok(days)
     }
 
     pub async fn day_view(&self, date: NaiveDate) -> Result<DaySummary, DomainError> {
@@ -80,6 +125,7 @@ fn to_day_articles(articles: &[Article], day: NaiveDate) -> Vec<DayArticleSummar
             title: a.title.clone(),
             state: a.state.as_str().to_string(),
             scheduled_at: a.scheduled_at,
+            target_platforms: vec![], // placeholder, will be filled by caller with task data
         })
         .collect()
 }

@@ -4,19 +4,22 @@ use askama::Template;
 use chrono::{Datelike, Duration, NaiveDate, Utc, Weekday};
 use std::collections::HashMap;
 
-use crate::application::DaySummary;
+use crate::application::{DaySummary, DayArticleSummary};
 use crate::state::AppState;
 
 pub struct DayArticleView {
     pub id: String,
     pub title: String,
     pub state: String,
+    pub platform: String,
+    pub scheduled_at: Option<String>,
 }
 
 pub struct DayCell {
     pub day: u32,
     pub date: String,
     pub in_month: bool,
+    pub is_today: bool,
     pub articles: Vec<DayArticleView>,
 }
 
@@ -42,6 +45,7 @@ struct CalendarWeekTemplate {
     next_year: i32,
     next_week: u32,
     days: Vec<DayCell>,
+    month: u32,
 }
 
 pub struct ListArticleView {
@@ -70,6 +74,8 @@ struct CalendarListTemplate {
     list_week_url: String,
     granularity: String,
     groups: Vec<ListDayGroup>,
+    month: u32,
+    year: i32,
 }
 
 pub async fn index() -> Redirect {
@@ -88,6 +94,8 @@ fn build_month_grid(year: i32, month: u32, days: &[DaySummary]) -> Vec<Vec<DayCe
     let first_of_month = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
     let weekday_from_monday = first_of_month.weekday().num_days_from_monday();
     let grid_start = first_of_month - Duration::days(weekday_from_monday as i64);
+    
+    let today = Utc::now().date_naive();
 
     let mut weeks = Vec::new();
     let mut cursor = grid_start;
@@ -99,7 +107,13 @@ fn build_month_grid(year: i32, month: u32, days: &[DaySummary]) -> Vec<Vec<DayCe
                 .map(|s| {
                     s.articles
                         .iter()
-                        .map(|a| DayArticleView { id: a.id.to_string(), title: a.title.clone(), state: a.state.clone() })
+                        .map(|a| DayArticleView { 
+                            id: a.id.to_string(), 
+                            title: a.title.clone(), 
+                            state: a.state.clone(),
+                            platform: a.target_platforms.first().cloned().unwrap_or_else(|| "generic".to_string()).to_lowercase(),
+                            scheduled_at: a.scheduled_at.map(|t| t.format("%Y-%m-%dT%H:%M:%S").to_string()),
+                        })
                         .collect()
                 })
                 .unwrap_or_default();
@@ -108,6 +122,7 @@ fn build_month_grid(year: i32, month: u32, days: &[DaySummary]) -> Vec<Vec<DayCe
                 day: cursor.day(),
                 date: cursor.format("%Y-%m-%d").to_string(),
                 in_month: cursor.month() == month,
+                is_today: cursor == today,
                 articles,
             });
             cursor += Duration::days(1);
@@ -139,22 +154,41 @@ pub async fn week_page(State(state): State<AppState>, Path((year, week)): Path<(
 
     let days = summaries
         .into_iter()
-        .map(|s| DayCell {
-            day: s.date.day(),
-            date: s.date.format("%Y-%m-%d").to_string(),
-            in_month: true,
-            articles: s
-                .articles
-                .into_iter()
-                .map(|a| DayArticleView { id: a.id.to_string(), title: a.title, state: a.state })
-                .collect(),
+        .map(|s| {
+            let today = Utc::now().date_naive();
+            DayCell {
+                day: s.date.day(),
+                date: s.date.format("%Y-%m-%d").to_string(),
+                in_month: true,
+                is_today: s.date == today,
+                articles: s
+                    .articles
+                    .into_iter()
+                    .map(|a| DayArticleView { 
+                        id: a.id.to_string(), 
+                        title: a.title, 
+                        state: a.state,
+                        platform: a.target_platforms.first().cloned().unwrap_or_else(|| "generic".to_string()).to_lowercase(),
+                        scheduled_at: a.scheduled_at.map(|t| t.format("%Y-%m-%dT%H:%M:%S").to_string()),
+                    })
+                    .collect(),
+            }
         })
         .collect();
 
     let (prev_year, prev_week) = if week <= 1 { (year - 1, 52) } else { (year, week - 1) };
     let (next_year, next_week) = if week >= 52 { (year + 1, 1) } else { (year, week + 1) };
 
-    let tpl = CalendarWeekTemplate { year, week, prev_year, prev_week, next_year, next_week, days };
+    let tpl = CalendarWeekTemplate { 
+        year, 
+        week, 
+        prev_year, 
+        prev_week, 
+        next_year, 
+        next_week, 
+        days,
+        month: Utc::now().month(),
+    };
     Html(tpl.render().unwrap_or_else(|e| format!("template error: {e}")))
 }
 
@@ -262,6 +296,8 @@ pub async fn list_month_page(State(state): State<AppState>, Path((year, month)):
         list_week_url: format!("/calendar/list/week/{}/{}", iso.year(), iso.week()),
         granularity: "month".to_string(),
         groups,
+        month,
+        year,
     };
     Html(tpl.render().unwrap_or_else(|e| format!("template error: {e}")))
 }
@@ -296,6 +332,8 @@ pub async fn list_week_page(State(state): State<AppState>, Path((year, week)): P
         list_week_url: format!("/calendar/list/week/{year}/{week}"),
         granularity: "week".to_string(),
         groups,
+        month: week_start.month(),
+        year,
     };
     Html(tpl.render().unwrap_or_else(|e| format!("template error: {e}")))
 }
