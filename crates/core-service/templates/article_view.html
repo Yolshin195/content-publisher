@@ -2,7 +2,7 @@
 {% block title %}{{ title }}{% endblock %}
 
 {% block secondary_toolbar %}
-<button class="today-button" onclick="window.location.href='/calendar/month/{{ chrono::Utc::now().year() }}/{{ chrono::Utc::now().month() }}'">Today</button>
+<button class="today-button" onclick="window.location.href='/calendar/month/{{ year }}/{{ month }}'">Today</button>
 <div class="nav-arrows">
     <button class="nav-arrow prev" aria-label="Previous" onclick="history.back()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

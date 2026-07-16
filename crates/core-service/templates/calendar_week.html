@@ -48,7 +48,7 @@
             <div class="time-grid-column" data-date="{{ day.date }}">
                 <!-- Events will be rendered here by JS or backend -->
                 {% for article in day.articles %}
-                <div class="event-block {{ article.platform.unwrap_or("generic") }}" 
+                <div class="event-block {{ article.platform.unwrap_or_else(|| "generic".to_string()) }}" 
                      data-id="{{ article.id }}" 
                      data-title="{{ article.title }}"
                      data-start-time="{{ article.scheduled_at }}">

@@ -4,7 +4,7 @@ use askama::Template;
 use chrono::{Datelike, Duration, NaiveDate, Utc, Weekday};
 use std::collections::HashMap;
 
-use crate::application::DaySummary;
+use crate::application::{DaySummary, DayArticleSummary};
 use crate::state::AppState;
 
 pub struct DayArticleView {
@@ -45,6 +45,7 @@ struct CalendarWeekTemplate {
     next_year: i32,
     next_week: u32,
     days: Vec<DayCell>,
+    month: u32,
 }
 
 pub struct ListArticleView {
@@ -73,6 +74,8 @@ struct CalendarListTemplate {
     list_week_url: String,
     granularity: String,
     groups: Vec<ListDayGroup>,
+    month: u32,
+    year: i32,
 }
 
 pub async fn index() -> Redirect {
@@ -176,7 +179,16 @@ pub async fn week_page(State(state): State<AppState>, Path((year, week)): Path<(
     let (prev_year, prev_week) = if week <= 1 { (year - 1, 52) } else { (year, week - 1) };
     let (next_year, next_week) = if week >= 52 { (year + 1, 1) } else { (year, week + 1) };
 
-    let tpl = CalendarWeekTemplate { year, week, prev_year, prev_week, next_year, next_week, days };
+    let tpl = CalendarWeekTemplate { 
+        year, 
+        week, 
+        prev_year, 
+        prev_week, 
+        next_year, 
+        next_week, 
+        days,
+        month: Utc::now().month(),
+    };
     Html(tpl.render().unwrap_or_else(|e| format!("template error: {e}")))
 }
 
@@ -284,6 +296,8 @@ pub async fn list_month_page(State(state): State<AppState>, Path((year, month)):
         list_week_url: format!("/calendar/list/week/{}/{}", iso.year(), iso.week()),
         granularity: "month".to_string(),
         groups,
+        month,
+        year,
     };
     Html(tpl.render().unwrap_or_else(|e| format!("template error: {e}")))
 }
@@ -318,6 +332,8 @@ pub async fn list_week_page(State(state): State<AppState>, Path((year, week)): P
         list_week_url: format!("/calendar/list/week/{year}/{week}"),
         granularity: "week".to_string(),
         groups,
+        month: week_start.month(),
+        year,
     };
     Html(tpl.render().unwrap_or_else(|e| format!("template error: {e}")))
 }

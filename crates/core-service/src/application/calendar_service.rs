@@ -4,7 +4,7 @@ use chrono::{DateTime, Datelike, Duration, NaiveDate, TimeZone, Utc};
 use uuid::Uuid;
 
 use super::ports::{ArticleRepository, TargetRepository, TaskRepository};
-use crate::domain::{Article, DomainError, Platform};
+use crate::domain::{Article, DomainError};
 
 pub struct DayArticleSummary {
     pub id: Uuid,

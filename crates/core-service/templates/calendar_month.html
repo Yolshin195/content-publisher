@@ -44,11 +44,11 @@
                 <div class="day-number">{{ day.day }}</div>
                 <div class="event-chips-container">
                     {% for article in day.articles %}
-                    <div class="event-chip {{ article.platform.unwrap_or("generic") }}" 
+                    <div class="event-chip {{ article.platform.unwrap_or_else(|| "generic".to_string()) }}" 
                          data-id="{{ article.id }}" 
                          data-title="{{ article.title }}"
                          data-start-time="{{ article.scheduled_at }}">
-                        <span class="event-chip-dot {{ article.platform.unwrap_or("generic") }}"></span>
+                        <span class="event-chip-dot {{ article.platform.unwrap_or_else(|| "generic".to_string()) }}"></span>
                         <span class="event-chip-title">{{ article.title }}</span>
                     </div>
                     {% endfor %}
