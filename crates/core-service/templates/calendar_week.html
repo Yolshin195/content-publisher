@@ -1,21 +1,64 @@
 {% extends "layout.html" %}
 {% block title %}Неделя {{ week }} / {{ year }}{% endblock %}
-{% block content %}
-<div class="calendar-header">
-    <a class="nav-btn" href="/calendar/week/{{ prev_year }}/{{ prev_week }}">‹ Пред</a>
-    <h1>Неделя {{ week }} / {{ year }}</h1>
-    <a class="nav-btn" href="/calendar/week/{{ next_year }}/{{ next_week }}">След ›</a>
-    <a class="nav-btn" href="/calendar/list/week/{{ year }}/{{ week }}">Список</a>
-    <a class="new-article-btn" href="/articles/new">+ Новая статья</a>
+
+{% block secondary_toolbar %}
+<button class="today-button">Today</button>
+<div class="nav-arrows">
+    <button class="nav-arrow prev" aria-label="Previous week" onclick="window.location.href='/calendar/week/{{ prev_year }}/{{ prev_week }}'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+    </button>
+    <button class="nav-arrow next" aria-label="Next week" onclick="window.location.href='/calendar/week/{{ next_year }}/{{ next_week }}'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+    </button>
 </div>
-<div class="calendar-grid week-grid">
-    {% for day in days %}
-    <div class="calendar-cell">
-        <div class="day-number"><a href="/articles/new?date={{ day.date }}">{{ day.date }}</a></div>
-        {% for article in day.articles %}
-        <a class="article-badge state-{{ article.state }}" href="/articles/{{ article.id }}/edit">{{ article.title }}</a>
-        {% endfor %}
-    </div>
-    {% endfor %}
+<div class="current-period-label">Week {{ week }}, {{ year }}</div>
+<div class="view-switcher">
+    <button class="view-switcher-btn" data-view="day">Day</button>
+    <button class="view-switcher-btn active" data-view="week">Week</button>
+    <button class="view-switcher-btn" data-view="month">Month</button>
+    <button class="view-switcher-btn" data-view="year">Year</button>
+    <button class="view-switcher-btn" data-view="schedule">Schedule</button>
 </div>
 {% endblock %}
+
+{% block content %}
+<div class="week-view">
+    <div class="weekday-header">
+        {% for day in days %}
+        <div class="weekday-header-cell{% if day.is_today %} today{% endif %}">
+            <span class="weekday-name">{{ day.date | date("%a") }}</span>
+            <span class="day-number">{{ day.day }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="time-grid">
+        <!-- Time labels column -->
+        <div class="time-labels">
+            {% for hour in 0..24 %}
+            <div class="time-label">{{ hour }}:00</div>
+            {% endfor %}
+        </div>
+        <!-- Day columns -->
+        <div class="time-grid-columns">
+            {% for day in days %}
+            <div class="time-grid-column" data-date="{{ day.date }}">
+                <!-- Events will be rendered here by JS or backend -->
+                {% for article in day.articles %}
+                <div class="event-block {{ article.platform.unwrap_or("generic") }}" 
+                     data-id="{{ article.id }}" 
+                     data-title="{{ article.title }}"
+                     data-start-time="{{ article.scheduled_at }}">
+                    <span class="event-block-title">{{ article.title }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+

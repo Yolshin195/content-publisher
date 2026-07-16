@@ -38,11 +38,9 @@
         </header>
 
         <!-- Secondary toolbar -->
-        {% if self.secondary_toolbar %}
         <div class="secondary-toolbar">
             {% block secondary_toolbar %}{% endblock %}
         </div>
-        {% endif %}
 
         <!-- Main content area -->
         <div class="main-content">
@@ -56,12 +54,15 @@
                     Create
                 </button>
 
-                <!-- Mini calendar -->
-                {% if self.mini_calendar %}
-                <div class="mini-calendar">
-                    {% block mini_calendar %}{% endblock %}
+                <!-- Mini calendar placeholder -->
+                <div class="mini-calendar-placeholder">
+                    <div class="mini-calendar-header">
+                        <span class="mini-calendar-month">{{ month }} {{ year }}</span>
+                    </div>
+                    <div class="mini-calendar-grid">
+                        <!-- Mini calendar will be rendered here by JS or backend -->
+                    </div>
                 </div>
-                {% endif %}
 
                 <!-- Platform filters -->
                 <div class="platform-filters">

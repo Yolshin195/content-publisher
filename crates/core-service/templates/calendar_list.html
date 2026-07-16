@@ -1,18 +1,31 @@
 {% extends "layout.html" %}
 {% block title %}{{ title }} — список{% endblock %}
-{% block content %}
-<div class="calendar-header">
-    <a class="nav-btn" href="{{ prev_url }}">‹ Пред</a>
-    <h1>{{ title }}</h1>
-    <a class="nav-btn" href="{{ next_url }}">След ›</a>
-    <div class="view-switch">
-        <a class="view-switch-item{% if granularity == "month" %} active{% endif %}" href="{{ list_month_url }}">Месяц</a>
-        <a class="view-switch-item{% if granularity == "week" %} active{% endif %}" href="{{ list_week_url }}">Неделя</a>
-    </div>
-    <a class="nav-btn" href="{{ grid_url }}">Сетка</a>
-    <a class="new-article-btn" href="/articles/new">+ Новая статья</a>
-</div>
 
+{% block secondary_toolbar %}
+<button class="today-button">Today</button>
+<div class="nav-arrows">
+    <button class="nav-arrow prev" aria-label="Previous" onclick="window.location.href='{{ prev_url }}'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+    </button>
+    <button class="nav-arrow next" aria-label="Next" onclick="window.location.href='{{ next_url }}'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+    </button>
+</div>
+<div class="current-period-label">{{ title }}</div>
+<div class="view-switcher">
+    <button class="view-switcher-btn" data-view="day">Day</button>
+    <button class="view-switcher-btn" data-view="week">Week</button>
+    <button class="view-switcher-btn" data-view="month">Month</button>
+    <button class="view-switcher-btn" data-view="year">Year</button>
+    <button class="view-switcher-btn active" data-view="schedule">Schedule</button>
+</div>
+{% endblock %}
+
+{% block content %}
 <div class="agenda-list">
     {% for group in groups %}
     <div class="agenda-day{% if group.is_today %} today{% endif %}">
@@ -22,11 +35,11 @@
         </div>
         <div class="agenda-day-items">
             {% for article in group.articles %}
-            <a class="agenda-item state-{{ article.state }}" href="/articles/{{ article.id }}/edit">
+            <div class="agenda-item state-{{ article.state }}" data-id="{{ article.id }}">
                 <span class="agenda-item-time">{{ article.time }}</span>
                 <span class="agenda-item-title">{{ article.title }}</span>
                 <span class="badge state-{{ article.state }}">{{ article.state }}</span>
-            </a>
+            </div>
             {% endfor %}
         </div>
     </div>

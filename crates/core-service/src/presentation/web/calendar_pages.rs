@@ -151,15 +151,25 @@ pub async fn week_page(State(state): State<AppState>, Path((year, week)): Path<(
 
     let days = summaries
         .into_iter()
-        .map(|s| DayCell {
-            day: s.date.day(),
-            date: s.date.format("%Y-%m-%d").to_string(),
-            in_month: true,
-            articles: s
-                .articles
-                .into_iter()
-                .map(|a| DayArticleView { id: a.id.to_string(), title: a.title, state: a.state })
-                .collect(),
+        .map(|s| {
+            let today = Utc::now().date_naive();
+            DayCell {
+                day: s.date.day(),
+                date: s.date.format("%Y-%m-%d").to_string(),
+                in_month: true,
+                is_today: s.date == today,
+                articles: s
+                    .articles
+                    .into_iter()
+                    .map(|a| DayArticleView { 
+                        id: a.id.to_string(), 
+                        title: a.title, 
+                        state: a.state,
+                        platform: a.target_platforms.first().cloned().map(|p| p.to_lowercase()),
+                        scheduled_at: a.scheduled_at.map(|t| t.format("%Y-%m-%dT%H:%M:%S").to_string()),
+                    })
+                    .collect(),
+            }
         })
         .collect();
 
