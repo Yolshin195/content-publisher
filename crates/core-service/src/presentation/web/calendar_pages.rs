@@ -11,12 +11,15 @@ pub struct DayArticleView {
     pub id: String,
     pub title: String,
     pub state: String,
+    pub platform: Option<String>,
+    pub scheduled_at: Option<String>,
 }
 
 pub struct DayCell {
     pub day: u32,
     pub date: String,
     pub in_month: bool,
+    pub is_today: bool,
     pub articles: Vec<DayArticleView>,
 }
 
@@ -88,6 +91,8 @@ fn build_month_grid(year: i32, month: u32, days: &[DaySummary]) -> Vec<Vec<DayCe
     let first_of_month = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
     let weekday_from_monday = first_of_month.weekday().num_days_from_monday();
     let grid_start = first_of_month - Duration::days(weekday_from_monday as i64);
+    
+    let today = Utc::now().date_naive();
 
     let mut weeks = Vec::new();
     let mut cursor = grid_start;
@@ -99,7 +104,13 @@ fn build_month_grid(year: i32, month: u32, days: &[DaySummary]) -> Vec<Vec<DayCe
                 .map(|s| {
                     s.articles
                         .iter()
-                        .map(|a| DayArticleView { id: a.id.to_string(), title: a.title.clone(), state: a.state.clone() })
+                        .map(|a| DayArticleView { 
+                            id: a.id.to_string(), 
+                            title: a.title.clone(), 
+                            state: a.state.clone(),
+                            platform: a.target_platforms.first().cloned().map(|p| p.to_lowercase()),
+                            scheduled_at: a.scheduled_at.map(|t| t.format("%Y-%m-%dT%H:%M:%S").to_string()),
+                        })
                         .collect()
                 })
                 .unwrap_or_default();
@@ -108,6 +119,7 @@ fn build_month_grid(year: i32, month: u32, days: &[DaySummary]) -> Vec<Vec<DayCe
                 day: cursor.day(),
                 date: cursor.format("%Y-%m-%d").to_string(),
                 in_month: cursor.month() == month,
+                is_today: cursor == today,
                 articles,
             });
             cursor += Duration::days(1);

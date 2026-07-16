@@ -9,16 +9,112 @@
     <link rel="stylesheet" href="/static/css/calendar.css">
 </head>
 <body>
-    <header class="topbar">
-        <a href="/" class="brand">Content Publisher</a>
-        <nav class="topbar-nav">
-            <a href="/">Календарь</a>
-            <a href="/calendar/list">Список</a>
-        </nav>
-    </header>
-    <main class="container">
-        {% block content %}{% endblock %}
-    </main>
+    <div class="app-shell">
+        <!-- Top bar -->
+        <header class="topbar">
+            <button class="menu-button" aria-label="Toggle sidebar">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+            </button>
+            <a href="/" class="brand">
+                <span class="brand-icon"></span>
+                Content Publisher
+            </a>
+            <div class="search-container">
+                <div class="search-input-wrapper">
+                    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                    <input type="text" class="search-input" placeholder="Search">
+                </div>
+            </div>
+            <div class="user-menu">
+                <div class="user-avatar" title="User">U</div>
+            </div>
+        </header>
+
+        <!-- Secondary toolbar -->
+        {% if self.secondary_toolbar %}
+        <div class="secondary-toolbar">
+            {% block secondary_toolbar %}{% endblock %}
+        </div>
+        {% endif %}
+
+        <!-- Main content area -->
+        <div class="main-content">
+            <!-- Left sidebar -->
+            <aside class="sidebar">
+                <button class="create-button" onclick="window.location.href='/articles/new'">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    Create
+                </button>
+
+                <!-- Mini calendar -->
+                {% if self.mini_calendar %}
+                <div class="mini-calendar">
+                    {% block mini_calendar %}{% endblock %}
+                </div>
+                {% endif %}
+
+                <!-- Platform filters -->
+                <div class="platform-filters">
+                    <div class="platform-filters-title">Calendars</div>
+                    <label class="platform-filter-item" data-platform="telegram">
+                        <div class="platform-filter-checkbox checked telegram">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </div>
+                        <span class="platform-filter-label">Telegram</span>
+                    </label>
+                    <label class="platform-filter-item" data-platform="instagram">
+                        <div class="platform-filter-checkbox checked instagram">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </div>
+                        <span class="platform-filter-label">Instagram</span>
+                    </label>
+                    <label class="platform-filter-item" data-platform="x">
+                        <div class="platform-filter-checkbox checked x">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </div>
+                        <span class="platform-filter-label">X (Twitter)</span>
+                    </label>
+                    <label class="platform-filter-item" data-platform="vk">
+                        <div class="platform-filter-checkbox checked vk">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </div>
+                        <span class="platform-filter-label">VK</span>
+                    </label>
+                    <label class="platform-filter-item" data-platform="youtube">
+                        <div class="platform-filter-checkbox checked youtube">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </div>
+                        <span class="platform-filter-label">YouTube</span>
+                    </label>
+                </div>
+            </aside>
+
+            <!-- Calendar container -->
+            <main class="calendar-container">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
     <script src="/static/js/calendar.js"></script>
 </body>
 </html>

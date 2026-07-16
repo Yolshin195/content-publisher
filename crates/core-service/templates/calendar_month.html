@@ -1,28 +1,62 @@
 {% extends "layout.html" %}
 {% block title %}Календарь — {{ month }}/{{ year }}{% endblock %}
+
+{% block secondary_toolbar %}
+<button class="today-button">Today</button>
+<div class="nav-arrows">
+    <button class="nav-arrow prev" aria-label="Previous month">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+    </button>
+    <button class="nav-arrow next" aria-label="Next month">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+    </button>
+</div>
+<div class="current-period-label">{{ month }} {{ year }}</div>
+<div class="view-switcher">
+    <button class="view-switcher-btn" data-view="day">Day</button>
+    <button class="view-switcher-btn" data-view="week">Week</button>
+    <button class="view-switcher-btn active" data-view="month">Month</button>
+    <button class="view-switcher-btn" data-view="year">Year</button>
+    <button class="view-switcher-btn" data-view="schedule">Schedule</button>
+</div>
+{% endblock %}
+
 {% block content %}
-<div class="calendar-header">
-    <a class="nav-btn" href="/calendar/month/{{ prev_year }}/{{ prev_month }}">‹ Пред</a>
-    <h1>{{ month }} / {{ year }}</h1>
-    <a class="nav-btn" href="/calendar/month/{{ next_year }}/{{ next_month }}">След ›</a>
-    <a class="nav-btn" href="/calendar/list/month/{{ year }}/{{ month }}">Список</a>
-    <a class="new-article-btn" href="/articles/new">+ Новая статья</a>
-</div>
-<div class="weekday-row">
-    <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span>
-</div>
-<div class="calendar-grid month-grid">
-    {% for week in weeks %}
-    <div class="calendar-row">
-        {% for day in week %}
-        <div class="calendar-cell{% if !day.in_month %} outside{% endif %}">
-            <div class="day-number"><a href="/articles/new?date={{ day.date }}">{{ day.day }}</a></div>
-            {% for article in day.articles %}
-            <a class="article-badge state-{{ article.state }}" href="/articles/{{ article.id }}/edit">{{ article.title }}</a>
+<div class="month-view">
+    <div class="weekday-header">
+        <div class="weekday-header-cell">Sun</div>
+        <div class="weekday-header-cell">Mon</div>
+        <div class="weekday-header-cell">Tue</div>
+        <div class="weekday-header-cell">Wed</div>
+        <div class="weekday-header-cell">Thu</div>
+        <div class="weekday-header-cell">Fri</div>
+        <div class="weekday-header-cell">Sat</div>
+    </div>
+    <div class="month-grid">
+        {% for week in weeks %}
+        <div class="month-row">
+            {% for day in week %}
+            <div class="month-cell{% if !day.in_month %} outside{% endif %}{% if day.is_today %} today{% endif %}" data-date="{{ day.date }}">
+                <div class="day-number">{{ day.day }}</div>
+                <div class="event-chips-container">
+                    {% for article in day.articles %}
+                    <div class="event-chip {{ article.platform | default(value='generic') }}" 
+                         data-id="{{ article.id }}" 
+                         data-title="{{ article.title }}"
+                         data-start-time="{{ article.scheduled_at }}">
+                        <span class="event-chip-dot {{ article.platform | default(value='generic') }}"></span>
+                        <span class="event-chip-title">{{ article.title }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
             {% endfor %}
         </div>
         {% endfor %}
     </div>
-    {% endfor %}
 </div>
 {% endblock %}
