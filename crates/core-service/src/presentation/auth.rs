@@ -1,6 +1,7 @@
 //! Авторизация: один пароль для веб-интерфейса (подписанная cookie-сессия) и
-//! токен для API/MCP (Claude). Если ни `ADMIN_PASSWORD`, ни `API_TOKEN` не заданы —
-//! авторизация выключена (локальная разработка), о чём пишется предупреждение в лог.
+//! токен для API/MCP (Claude). Безопасно по умолчанию: без `ADMIN_PASSWORD`/`API_TOKEN`
+//! сервис не стартует (см. `AppConfig::validate_auth`); открытый режим — только
+//! по явному флагу `AUTH_DISABLED=true` для локальной разработки.
 
 use axum::extract::{Query, Request, State};
 use axum::http::{header, HeaderMap, StatusCode};
@@ -120,7 +121,7 @@ pub async fn auth_middleware(State(state): State<AppState>, mut req: Request, ne
     let path = req.uri().path().to_string();
 
     if !config.auth_enabled() {
-        // Режим разработки: Claude может представиться заголовком X-Actor: claude.
+        // AUTH_DISABLED=true (локальная разработка): Claude может представиться заголовком X-Actor: claude.
         let actor = match req.headers().get("x-actor").and_then(|v| v.to_str().ok()) {
             Some("claude") => Actor::Claude,
             _ if path.starts_with("/mcp") => Actor::Claude,

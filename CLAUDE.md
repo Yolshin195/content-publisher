@@ -10,7 +10,9 @@ Postgres, интерфейс на Askama + Tailwind v4 + Alpine.js. Язык и�
 - `make css` — после правок `crates/core-service/templates/**` или `static/js/app.js`
   пересобрать `static/css/app.css` (классы Tailwind ищутся в шаблонах, JS и `src/**/*.rs`).
   Собранный CSS коммитится.
-- Локальный запуск: Postgres из `compose.infra.yml`, затем `cargo run --bin core-service`.
+- Локальный запуск: `make env` (сгенерирует пароль и токен), Postgres из `compose.infra.yml`,
+  затем `cargo run --bin core-service`. Без `ADMIN_PASSWORD`/`API_TOKEN` сервис намеренно не
+  стартует; открытый режим — только явный `AUTH_DISABLED=true`. Не ослабляйте эту проверку.
 - Если сборка `utoipa-swagger-ui` не может скачать архив с GitHub — собрать zip из npm-пакета
   `swagger-ui-dist@5.17.14` (каталог `swagger-ui-5.17.14/dist/`) и указать
   `SWAGGER_UI_DOWNLOAD_URL=file:///…/swagger-ui-5.17.14.zip`.

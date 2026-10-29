@@ -25,9 +25,24 @@ help: ## Показать список доступных команд
 ## ── Подготовка окружения ─────────────────────────────────────────────────────
 
 .PHONY: env
-env: ## Создать .env файлы сервисов из .env.example, если их ещё нет
-	@if [ ! -f $(CORE_ENV) ]; then 		cp crates/core-service/.env.example $(CORE_ENV); 		echo "→ создан $(CORE_ENV)"; 	else 		echo "→ $(CORE_ENV) уже существует, пропускаю"; 	fi
-	@if [ ! -f $(TELEGRAM_ENV) ]; then 		cp crates/telegram-publisher/.env.example $(TELEGRAM_ENV); 		echo "→ создан $(TELEGRAM_ENV) — впишите в него реальный TELEGRAM_BOT_TOKEN!"; 	else 		echo "→ $(TELEGRAM_ENV) уже существует, пропускаю"; 	fi
+env: ## Создать .env файлы сервисов из .env.example (пароль и токен генерируются случайно)
+	@if [ ! -f $(CORE_ENV) ]; then \
+		cp crates/core-service/.env.example $(CORE_ENV); \
+		pass=$$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n'); \
+		token=$$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n'); \
+		sed -i.bak -e "s/^ADMIN_PASSWORD=.*/ADMIN_PASSWORD=$$pass/" -e "s/^API_TOKEN=.*/API_TOKEN=$$token/" $(CORE_ENV); \
+		rm -f $(CORE_ENV).bak; \
+		echo "→ создан $(CORE_ENV) со случайными ADMIN_PASSWORD и API_TOKEN"; \
+		echo "  пароль для входа в интерфейс: $$pass"; \
+	else \
+		echo "→ $(CORE_ENV) уже существует, пропускаю"; \
+	fi
+	@if [ ! -f $(TELEGRAM_ENV) ]; then \
+		cp crates/telegram-publisher/.env.example $(TELEGRAM_ENV); \
+		echo "→ создан $(TELEGRAM_ENV) — впишите в него реальный TELEGRAM_BOT_TOKEN!"; \
+	else \
+		echo "→ $(TELEGRAM_ENV) уже существует, пропускаю"; \
+	fi
 
 .PHONY: sqlx-stub
 sqlx-stub: ## Гарантировать наличие .sqlx/ (нужно для COPY .sqlx в Dockerfile)

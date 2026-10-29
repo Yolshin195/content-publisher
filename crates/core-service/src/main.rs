@@ -25,8 +25,16 @@ async fn main() -> anyhow::Result<()> {
 
     tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::from_default_env()).init();
 
+    if let Err(problem) = config.validate_auth() {
+        // Ошибка настройки, а не сбой: короткое сообщение без backtrace.
+        eprintln!("Ошибка конфигурации — небезопасная настройка доступа: {problem}");
+        std::process::exit(2);
+    }
     if !config.auth_enabled() {
-        tracing::warn!("ADMIN_PASSWORD and API_TOKEN are not set — authentication is DISABLED (ok only for local dev)");
+        tracing::warn!(
+            host = %config.server_host,
+            "AUTH_DISABLED=true — авторизация ОТКЛЮЧЕНА, интерфейс, API и MCP открыты всем; только для локальной разработки"
+        );
     }
 
     let pool = sqlx::postgres::PgPoolOptions::new()
