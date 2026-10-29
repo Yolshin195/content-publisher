@@ -6,6 +6,8 @@ use crate::domain::{DomainError, PublicationTask};
 
 #[async_trait]
 pub trait TaskRepository: Send + Sync {
+    /// Создаёт задачу или переоткрывает существующую. Уже опубликованная задача
+    /// не сбрасывается — повторное планирование не приводит к повторной публикации.
     async fn create(&self, article_id: Uuid, target_id: Uuid) -> Result<PublicationTask, DomainError>;
     async fn get(&self, id: Uuid) -> Result<PublicationTask, DomainError>;
     async fn get_by_article_and_target(&self, article_id: Uuid, target_id: Uuid) -> Result<PublicationTask, DomainError>;
@@ -24,4 +26,6 @@ pub trait TaskRepository: Send + Sync {
     async fn mark_failed(&self, id: Uuid, error: String, terminal: bool) -> Result<(), DomainError>;
     async fn reset_to_pending(&self, id: Uuid) -> Result<(), DomainError>;
     async fn cancel(&self, id: Uuid) -> Result<(), DomainError>;
+    /// Отменяет незавершённые (pending/failed) задачи статьи, кроме целей из `keep_targets`.
+    async fn cancel_open_for_article(&self, article_id: Uuid, keep_targets: &[Uuid]) -> Result<u64, DomainError>;
 }

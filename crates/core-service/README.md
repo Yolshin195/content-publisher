@@ -1,80 +1,42 @@
 # Core Service
 
-Реализация Core Service согласно корневому `README.md` проекта: хранение статей,
-целевых площадок публикации, задач публикации по площадкам, календарное
-представление и REST API с OpenAPI-документацией. Публикация в конкретные соцсети
-(Telegram и др.) выполняется отдельными Publisher-микросервисами по контракту
-`shared-contracts::PublishRequest/PublishResult` — сами Publisher-сервисы в этом
-этапе не реализуются, только контракт и HTTP-клиент к ним (`HttpPublicationGateway`).
+Хранение постов и промптов, планирование и запуск публикаций, веб-интерфейс,
+REST API и MCP-сервер для Claude. Запуск, переменные окружения и подключение Claude —
+в корневом `README.md`.
 
-## Запуск
+## Устройство
 
-1. Поднять PostgreSQL (например, `docker run -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=core_db -p 5432:5432 postgres:16`).
-2. Скопировать `.env.example` в `.env` и поправить `DATABASE_URL` при необходимости.
-3. Запустить сервис — миграции применяются автоматически при старте:
+Гексагональная архитектура: домен и бизнес-логика не зависят от Axum и sqlx.
 
-   ```bash
-   cargo run --bin core-service
-   ```
+- `domain/` — `Article` (статусы `suggested → draft → scheduled`, `rejected`, `archived`;
+  происхождение, теги, версии промптов, источники, отзыв автора), `PromptNode`/`PromptVersion`,
+  `InterestSnapshot`, `PublicationTarget`, `PublicationTask`, проверка разметки Telegram
+  (`telegram_html.rs`).
+- `application/` — порты и сервисы: `ArticleService`, `SuggestionService` (цикл «Claude
+  предлагает — автор решает»), `SchedulingService`, `PublicationOrchestrator` (одна логика
+  публикации для планировщика и кнопки «Сейчас»), `PromptService` (дерево, `{{> key}}`,
+  версии, diff, Markdown), `CalendarService` (дни в `APP_TIMEZONE`), `AnalyticsService`,
+  `InterestService`.
+- `infrastructure/` — репозитории на `sqlx` (runtime-запросы, без живой БД при сборке),
+  HTTP-клиенты к Publisher и Media Service, интервальный планировщик.
+- `presentation/` — REST (`api/`, OpenAPI через utoipa), MCP (`mcp.rs`, Streamable HTTP,
+  stateless JSON-RPC), страницы (`web/` + `templates/`), авторизация (`auth.rs`:
+  cookie-сессия по паролю и Bearer-токен).
 
-4. Открыть в браузере:
-   - `http://localhost:8080/` — календарь (редирект на текущий месяц)
-   - `http://localhost:8080/docs` — Swagger UI с OpenAPI-документацией
-   - `http://localhost:8080/api-docs/openapi.json` — сама OpenAPI-спецификация
+Статика: `static/css/app.css` собирается Tailwind из `frontend/app.css` (`make css`),
+`static/js/app.js` — Alpine-компоненты, `static/icons.svg` — спрайт иконок.
 
-## Генерация OpenAPI-спецификации без БД
+## Полезное
 
-Вспомогательный бинарник печатает спецификацию в stdout, не поднимая сервер и не
-требуя подключения к БД (полезно для CI / статической генерации документации):
+- `cargo run --bin print_openapi > openapi.json` — спецификация без запуска сервера и БД.
+- Миграции (`migrations/`) применяются при старте.
+- Стартовые промпты (`seed/prompts/*.md`) загружаются только в пустой справочник.
+- В сетях без доступа к GitHub сборка `utoipa-swagger-ui` падает на скачивании архива —
+  укажите локальный файл: `SWAGGER_UI_DOWNLOAD_URL=file:///path/to/swagger-ui-5.17.14.zip`.
 
-```bash
-cargo run --bin print_openapi > openapi.json
-```
+## Известные упрощения
 
-## Что реализовано
-
-- Доменный слой (`domain`) — `Article`, `ArticleVideoLink` (через `VideoLink`),
-  `PublicationTarget`, `PublicationTask`, `PublicationLog`, без зависимостей от
-  Axum/sqlx.
-- Порты (`application/ports`) и сервисы (`application/*_service.rs`,
-  `PublicationOrchestrator`) — бизнес-логика не зависит от конкретной БД или
-  транспорта.
-- Репозитории на `sqlx`/PostgreSQL (`infrastructure/db`) — через `sqlx::query`
-  (runtime, не compile-time проверяемые макросы), т.к. это не требует наличия
-  живой БД на этапе сборки.
-- `HttpPublicationGateway` — реализация единого контракта публикации поверх
-  простого HTTP-вызова с реестром `platform -> base_url`.
-- `HttpMediaClient` — клиент к Media Service; при отсутствии `MEDIA_SERVICE_URL`
-  корректно возвращает ошибку, не блокируя остальной функционал.
-- Cron-джоба (`infrastructure/scheduler`) — интервальный планировщик поверх
-  `tokio::time::interval`, вызывающий `PublicationOrchestrator::tick()`.
-- REST API (`presentation/api`) с аннотациями `utoipa::path` и агрегатором
-  `ApiDoc` (`presentation/api/openapi.rs`), Swagger UI на `/docs`.
-- HTML-интерфейс (`presentation/web`, Askama-шаблоны в `templates/`) — календарь
-  месяц/неделя в стиле Google Calendar, форма создания/редактирования статьи с
-  загрузкой картинки, несколькими ссылками на видео и выбором целевых площадок.
-
-## Известные упрощения (сознательно оставлено на следующие итерации)
-
-- Планировщик — фиксированный интервал, а не полноценные cron-выражения (легко
-  заменить на `tokio-cron-scheduler`, не трогая `PublicationOrchestrator`).
-- `cover_image_url` в `PublishRequest` пока всегда `None` — резолвинг реальной
-  картинки через `MediaClient` по `article.cover_media_id` помечен `TODO` в
-  `PublicationOrchestrator::process_task`.
-- Авторизация не реализована (как и договаривались) — добавляется отдельным
-  `Router::layer` поверх готового Core Service.
-
-## Важное примечание о проверке компиляции
-
-Этот код был написан и тщательно вычитан вручную (сигнатуры трейтов, импорты,
-типы в SQL-биндингах, соответствие полей Askama-шаблонов), но в среде, где
-готовился проект, не было доступа к тулчейну Rust (сетевые ограничения песочницы
-не дали установить `rustc`/`cargo`), поэтому `cargo build`/`cargo check` ни разу
-не запускались. Перед деплоем обязательно прогоните:
-
-```bash
-cargo check --workspace
-cargo clippy --workspace
-```
-
-и пришлите вывод, если появятся ошибки — поправим.
+- Планировщик — фиксированный интервал (`SCHEDULER_TICK_INTERVAL_SECONDS`), а не cron.
+- Обложка — прямая ссылка на картинку; загрузка через Media Service работает, только если он подключён.
+- Просмотры постов Telegram Bot API не отдаёт, поэтому аналитика — по собственному конвейеру
+  (публикации, решения по предложениям, промпты), без охватов.

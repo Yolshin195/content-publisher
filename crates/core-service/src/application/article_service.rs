@@ -3,7 +3,10 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use super::ports::{ArticleFilter, ArticleRepository};
-use crate::domain::{Article, ArticleUpdate, DomainError, NewArticle, VideoLink, VideoPlatform};
+use crate::domain::{
+    normalize_tags, slugify, validate_sources, validate_url, Article, ArticleUpdate, DomainError, NewArticle,
+    VideoLink, VideoPlatform,
+};
 
 pub struct ArticleService {
     repo: Arc<dyn ArticleRepository>,
@@ -14,13 +17,20 @@ impl ArticleService {
         Self { repo }
     }
 
-    pub async fn create(&self, new_article: NewArticle) -> Result<Article, DomainError> {
-        if new_article.title.trim().is_empty() {
+    pub async fn create(&self, mut new_article: NewArticle) -> Result<Article, DomainError> {
+        new_article.title = new_article.title.trim().to_string();
+        if new_article.title.is_empty() {
             return Err(DomainError::Validation("title must not be empty".into()));
         }
         if new_article.slug.trim().is_empty() {
-            return Err(DomainError::Validation("slug must not be empty".into()));
+            new_article.slug = slugify(&new_article.title);
         }
+        new_article.tags = normalize_tags(new_article.tags);
+        new_article.cover_image_url = new_article.cover_image_url.filter(|u| !u.trim().is_empty());
+        if let Some(url) = &new_article.cover_image_url {
+            validate_url(url, "cover_image_url")?;
+        }
+        validate_sources(&new_article.sources)?;
         self.repo.create(new_article).await
     }
 
@@ -32,7 +42,21 @@ impl ArticleService {
         self.repo.list(filter).await
     }
 
-    pub async fn update(&self, id: Uuid, update: ArticleUpdate) -> Result<Article, DomainError> {
+    pub async fn update(&self, id: Uuid, mut update: ArticleUpdate) -> Result<Article, DomainError> {
+        if let Some(title) = update.title.as_mut() {
+            *title = title.trim().to_string();
+            if title.is_empty() {
+                return Err(DomainError::Validation("title must not be empty".into()));
+            }
+        }
+        update.tags = update.tags.map(normalize_tags);
+        update.cover_image_url = update.cover_image_url.map(|u| u.filter(|u| !u.trim().is_empty()));
+        if let Some(Some(url)) = &update.cover_image_url {
+            validate_url(url, "cover_image_url")?;
+        }
+        if let Some(sources) = &update.sources {
+            validate_sources(sources)?;
+        }
         self.repo.update(id, update).await
     }
 
@@ -47,9 +71,7 @@ impl ArticleService {
         url: String,
         is_primary: bool,
     ) -> Result<VideoLink, DomainError> {
-        if url.trim().is_empty() {
-            return Err(DomainError::Validation("video url must not be empty".into()));
-        }
+        validate_url(&url, "video url")?;
         self.repo.add_video_link(article_id, platform, url, is_primary).await
     }
 
@@ -59,5 +81,9 @@ impl ArticleService {
 
     pub async fn list_video_links(&self, article_id: Uuid) -> Result<Vec<VideoLink>, DomainError> {
         self.repo.list_video_links(article_id).await
+    }
+
+    pub async fn tag_counts(&self) -> Result<Vec<(String, i64)>, DomainError> {
+        self.repo.tag_counts().await
     }
 }

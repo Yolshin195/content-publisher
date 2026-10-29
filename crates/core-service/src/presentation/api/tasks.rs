@@ -27,12 +27,29 @@ pub async fn schedule_article(
 #[utoipa::path(
     post, path = "/api/articles/{id}/publish-now",
     params(("id" = Uuid, Path, description = "ID статьи")),
-    responses((status = 202, description = "Немедленная публикация запущена во все привязанные цели")),
+    request_body = PublishNowRequest,
+    responses((status = 200, description = "Публикация выполнена; статусы по площадкам", body = [TaskResponse])),
     tag = "publication"
 )]
-pub async fn publish_now(State(state): State<AppState>, Path(id): Path<Uuid>) -> AppResult<StatusCode> {
-    state.orchestrator.publish_article_now(id).await.map_err(AppError::from)?;
-    Ok(StatusCode::ACCEPTED)
+pub async fn publish_now(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    body: Option<Json<PublishNowRequest>>,
+) -> AppResult<Json<Vec<TaskResponse>>> {
+    let target_ids = body.and_then(|b| b.0.target_ids);
+    let tasks = state.scheduling_service.publish_now(id, target_ids).await.map_err(AppError::from)?;
+    Ok(Json(tasks.into_iter().map(TaskResponse::from).collect()))
+}
+
+#[utoipa::path(
+    post, path = "/api/articles/{id}/unschedule",
+    params(("id" = Uuid, Path, description = "ID статьи")),
+    responses((status = 200, description = "Снято с публикации — статья снова черновик", body = ArticleResponse)),
+    tag = "publication"
+)]
+pub async fn unschedule(State(state): State<AppState>, Path(id): Path<Uuid>) -> AppResult<Json<ArticleResponse>> {
+    state.scheduling_service.unschedule(id).await.map_err(AppError::from)?;
+    Ok(Json(super::articles::full_article(&state, id).await?))
 }
 
 #[utoipa::path(

@@ -1,0 +1,342 @@
+<div class="flex h-full min-h-0 flex-col">
+    <!-- Шапка -->
+    <div class="flex items-center gap-2 border-b border-line bg-surface px-4 py-3 sm:gap-3 sm:px-6">
+        <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-1.5">
+                <span class="badge" :class="'st-' + status.key" x-text="status.label"></span>
+                <span class="badge badge-ai" x-show="a?.origin === 'ai'" x-cloak>
+                    <svg class="size-3"><use href="/static/icons.svg#i-sparkles"/></svg> от Claude
+                </span>
+                <span class="text-xs text-warn" x-show="dirty" x-cloak>● есть несохранённые изменения</span>
+            </div>
+            <h2 class="mt-1 truncate text-base font-semibold sm:text-lg" x-text="form.title || (isNew ? 'Новый пост' : 'Без заголовка')"></h2>
+        </div>
+        <a x-show="mode === 'drawer' && id" x-cloak :href="'/articles/' + id" class="btn-icon hidden sm:inline-flex" data-tip="Открыть на отдельной странице" aria-label="Открыть на отдельной странице">
+            <svg class="size-[18px]"><use href="/static/icons.svg#i-maximize"/></svg>
+        </a>
+        <button type="button" class="btn btn-secondary" @click="save()" :disabled="busy || loading || (!dirty && !isNew)">
+            <span x-text="isNew ? 'Создать' : 'Сохранить'"></span>
+            <span class="kbd hidden sm:inline-flex">Ctrl S</span>
+        </button>
+        <button type="button" class="btn-icon" @click="close()" :aria-label="mode === 'drawer' ? 'Закрыть' : 'Назад'" :data-tip="mode === 'drawer' ? 'Закрыть (Esc)' : 'Назад'">
+            <svg class="size-5"><use href="/static/icons.svg#i-x"/></svg>
+        </button>
+    </div>
+
+    <div class="grid flex-1 place-items-center text-sm text-ink-3" x-show="loading" x-cloak>Загрузка…</div>
+
+    <div class="min-h-0 flex-1 overflow-y-auto scroll-thin" x-show="!loading">
+        <div class="grid gap-6 p-4 sm:p-6 xl:grid-cols-[minmax(0,1fr)_400px]">
+            <!-- ── Левая колонка: текст ── -->
+            <div class="min-w-0 space-y-5">
+
+                <!-- Предложение от Claude: почему и что делать -->
+                <template x-if="a && a.state === 'suggested'">
+                    <div class="card overflow-hidden ring-amber-500/30">
+                        <div class="flex items-start gap-3 bg-amber-50/70 p-4 dark:bg-amber-400/5">
+                            <span class="grid size-8 shrink-0 place-items-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300">
+                                <svg class="size-4"><use href="/static/icons.svg#i-sparkles"/></svg>
+                            </span>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm font-semibold">Claude предлагает этот пост</p>
+                                <p class="mt-1 text-sm text-ink-2" x-text="a.rationale || 'Без пояснения.'"></p>
+                                <div class="mt-3 flex flex-wrap gap-2">
+                                    <button type="button" class="btn btn-ok btn-sm" @click="accept()" :disabled="busy">
+                                        <svg class="size-4"><use href="/static/icons.svg#i-check"/></svg> Принять в черновики
+                                    </button>
+                                    <button type="button" class="btn btn-secondary btn-sm" @click="acceptAndSchedule()" :disabled="busy">
+                                        <svg class="size-4"><use href="/static/icons.svg#i-clock"/></svg> Принять и запланировать
+                                    </button>
+                                    <button type="button" class="btn btn-danger-ghost btn-sm" @click="showReject = !showReject" :disabled="busy">
+                                        <svg class="size-4"><use href="/static/icons.svg#i-x"/></svg> Отклонить…
+                                    </button>
+                                </div>
+                                <div class="mt-3 space-y-2" x-show="showReject" x-cloak x-transition>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <template x-for="r in reasons" :key="r">
+                                            <button type="button" class="badge badge-neutral cursor-pointer hover:ring-line-strong" @click="rejectReason = rejectReason ? rejectReason + '; ' + r : r" x-text="r"></button>
+                                        </template>
+                                    </div>
+                                    <textarea class="textarea" rows="2" x-model="rejectReason" placeholder="Почему не подходит? Claude учтёт это в следующих предложениях"></textarea>
+                                    <button type="button" class="btn btn-danger btn-sm" @click="reject()" :disabled="busy">Отклонить</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <template x-if="a && a.state === 'rejected'">
+                    <div class="card flex items-start gap-3 p-4">
+                        <svg class="mt-0.5 size-5 shrink-0 text-rose-500"><use href="/static/icons.svg#i-x"/></svg>
+                        <div class="flex-1 text-sm">
+                            <p class="font-semibold">Предложение отклонено</p>
+                            <p class="mt-0.5 text-ink-2" x-text="a.feedback ? 'Причина: ' + a.feedback : 'Причина не указана'"></p>
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-sm" @click="restore()" :disabled="busy">
+                            <svg class="size-4"><use href="/static/icons.svg#i-undo"/></svg> Вернуть
+                        </button>
+                    </div>
+                </template>
+
+                <template x-if="a && a.feedback && a.state !== 'rejected'">
+                    <div class="flex items-start gap-2 rounded-lg bg-subtle px-3 py-2 text-sm text-ink-2">
+                        <svg class="mt-0.5 size-4 shrink-0 text-ink-3"><use href="/static/icons.svg#i-info"/></svg>
+                        <span>Ваш отзыв: <span class="text-ink" x-text="a.feedback"></span></span>
+                    </div>
+                </template>
+
+                <div>
+                    <label class="sr-only" for="post-title">Заголовок</label>
+                    <input id="post-title" x-ref="title" type="text" x-model="form.title" placeholder="Заголовок поста"
+                           class="block w-full border-0 bg-transparent p-0 text-2xl font-semibold tracking-tight text-ink placeholder:text-ink-3 focus:ring-0">
+                    <p class="hint">Публикуется первой строкой жирным шрифтом.</p>
+                </div>
+
+                <!-- Текст поста -->
+                <div class="card overflow-hidden focus-within:ring-2 focus-within:ring-accent">
+                    <div class="flex flex-wrap items-center gap-0.5 border-b border-line bg-subtle/60 px-2 py-1.5" role="toolbar" aria-label="Форматирование">
+                        <button type="button" class="btn-icon size-8 font-bold" @click="wrap('b')" data-tip="Жирный (Ctrl B)">B</button>
+                        <button type="button" class="btn-icon size-8 italic" @click="wrap('i')" data-tip="Курсив (Ctrl I)">I</button>
+                        <button type="button" class="btn-icon size-8 underline" @click="wrap('u')" data-tip="Подчёркнутый (Ctrl U)">U</button>
+                        <button type="button" class="btn-icon size-8 line-through" @click="wrap('s')" data-tip="Зачёркнутый">S</button>
+                        <span class="mx-1 h-5 w-px bg-line"></span>
+                        <button type="button" class="btn-icon size-8" @click="wrap('a')" data-tip="Ссылка (Ctrl K)" aria-label="Ссылка">
+                            <svg class="size-4"><use href="/static/icons.svg#i-link"/></svg>
+                        </button>
+                        <button type="button" class="btn-icon size-8 font-mono text-xs" @click="wrap('code')" data-tip="Код в строке">&lt;/&gt;</button>
+                        <button type="button" class="btn-icon size-8 font-mono text-xs" @click="wrap('pre')" data-tip="Блок кода">{ }</button>
+                        <button type="button" class="btn-icon size-8 text-lg leading-none" @click="wrap('blockquote')" data-tip="Цитата">❝</button>
+                        <button type="button" class="btn-icon size-8 text-xs" @click="wrap('tg-spoiler')" data-tip="Спойлер">▒▒</button>
+                        <span class="flex-1"></span>
+                        <button type="button" class="btn btn-ghost btn-sm xl:hidden" @click="pane = pane === 'edit' ? 'preview' : 'edit'">
+                            <svg class="size-4"><use href="/static/icons.svg#i-eye"/></svg>
+                            <span x-text="pane === 'edit' ? 'Превью' : 'Текст'"></span>
+                        </button>
+                    </div>
+                    <textarea x-ref="body" x-model="form.content_html" x-show="pane === 'edit'" rows="16"
+                              class="block min-h-[18rem] w-full resize-y border-0 bg-surface px-4 py-3 font-mono text-[13px] leading-relaxed text-ink focus:ring-0"
+                              placeholder="Текст поста в HTML-разметке Telegram. Переносы строк — обычным Enter."></textarea>
+                    <div class="bg-surface p-4 xl:hidden" x-show="pane === 'preview'" x-cloak>
+                        <div class="tg-frame"><div class="tg-bubble"><div class="tg-text"><b x-text="form.title"></b><span x-show="form.title" x-text="'\n\n'"></span><span x-html="preview"></span></div></div></div>
+                    </div>
+                    <div class="flex items-center gap-3 border-t border-line bg-surface px-4 py-2 text-xs">
+                        <div class="h-1.5 w-24 overflow-hidden rounded-full bg-subtle" :data-tip="`${length} из ${limit} символов`">
+                            <div class="h-full rounded-full transition-all" :class="lengthPct >= 100 ? 'bg-danger' : lengthPct > 85 ? 'bg-warn' : 'bg-ok'" :style="`width: ${lengthPct}%`"></div>
+                        </div>
+                        <span class="whitespace-nowrap tabular-nums text-ink-3" x-text="`${length} / ${limit}`"></span>
+                        <span class="flex-1"></span>
+                        <span class="flex items-center gap-1 whitespace-nowrap text-ok" x-show="!problems.length"><svg class="size-3.5"><use href="/static/icons.svg#i-check"/></svg> разметка в порядке</span>
+                    </div>
+                    <template x-if="problems.length">
+                        <ul class="space-y-1 border-t border-line bg-danger-soft px-4 py-2 text-xs text-danger">
+                            <template x-for="p in problems" :key="p">
+                                <li class="flex gap-1.5"><svg class="mt-px size-3.5 shrink-0"><use href="/static/icons.svg#i-alert"/></svg><span x-text="p"></span></li>
+                            </template>
+                        </ul>
+                    </template>
+                </div>
+
+                <!-- Теги -->
+                <div>
+                    <span class="label">Теги</span>
+                    <div class="flex flex-wrap items-center gap-1.5 rounded-lg bg-surface px-2 py-1.5 ring-1 ring-line-strong ring-inset focus-within:ring-2 focus-within:ring-accent">
+                        <template x-for="t in form.tags" :key="t">
+                            <span class="badge badge-neutral">
+                                #<span x-text="t"></span>
+                                <button type="button" class="text-ink-3 hover:text-ink" @click="removeTag(t)" :aria-label="'Удалить тег ' + t">×</button>
+                            </span>
+                        </template>
+                        <input type="text" x-model="tagInput" @keydown.enter.prevent="addTag()" @keydown.comma.prevent="addTag()" @blur="addTag()"
+                               class="min-w-32 flex-1 border-0 bg-transparent p-1 text-sm focus:ring-0" placeholder="rust, новости…">
+                    </div>
+                </div>
+
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <label class="label" for="post-excerpt">Краткое описание</label>
+                        <textarea id="post-excerpt" class="textarea" rows="2" x-model="form.excerpt" placeholder="1–2 предложения для списков"></textarea>
+                    </div>
+                    <div>
+                        <label class="label" for="post-cover">Обложка (ссылка на картинку)</label>
+                        <input id="post-cover" type="url" class="input" x-model="form.cover_image_url" placeholder="https://…">
+                        <p class="hint">С обложкой пост уходит фото с подписью — лимит 1024 символа.</p>
+                    </div>
+                </div>
+
+                <!-- Происхождение: промпты, источники, обоснование -->
+                <details class="card group" :open="a?.origin === 'ai'">
+                    <summary class="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold">
+                        <svg class="size-4 text-ink-3"><use href="/static/icons.svg#i-book"/></svg>
+                        Источники и генерация
+                        <span class="ml-auto text-xs font-normal text-ink-3" x-text="form.sources.length ? form.sources.length + ' источн.' : ''"></span>
+                        <svg class="size-4 text-ink-3 transition group-open:rotate-180"><use href="/static/icons.svg#i-chevron-down"/></svg>
+                    </summary>
+                    <div class="space-y-4 border-t border-line px-4 py-4">
+                        <template x-if="a && a.prompt_refs && a.prompt_refs.length">
+                            <div>
+                                <span class="section-title">Промпты (версии на момент генерации)</span>
+                                <div class="mt-2 flex flex-wrap gap-1.5">
+                                    <template x-for="r in a.prompt_refs" :key="r.key">
+                                        <a class="badge badge-ai hover:underline" :href="'/prompts?key=' + encodeURIComponent(r.key)" x-text="`${r.key} · v${r.version}`"></a>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                        <div>
+                            <label class="label" for="post-rationale">Почему этот пост</label>
+                            <textarea id="post-rationale" class="textarea" rows="2" x-model="form.rationale" placeholder="Обоснование — заполняет Claude"></textarea>
+                        </div>
+                        <div>
+                            <div class="mb-1.5 flex items-center justify-between">
+                                <span class="label mb-0">Источники</span>
+                                <button type="button" class="btn btn-ghost btn-sm" @click="addSource()"><svg class="size-3.5"><use href="/static/icons.svg#i-plus"/></svg> Добавить</button>
+                            </div>
+                            <div class="space-y-2">
+                                <template x-for="(s, i) in form.sources" :key="i">
+                                    <div class="flex gap-2">
+                                        <input type="text" class="input w-1/3" x-model="s.title" placeholder="Название">
+                                        <input type="url" class="input flex-1" x-model="s.url" placeholder="https://…">
+                                        <a class="btn-icon" :href="s.url" target="_blank" rel="noopener" x-show="s.url" aria-label="Открыть"><svg class="size-4"><use href="/static/icons.svg#i-external"/></svg></a>
+                                        <button type="button" class="btn-icon" @click="form.sources.splice(i, 1)" aria-label="Удалить источник"><svg class="size-4"><use href="/static/icons.svg#i-trash"/></svg></button>
+                                    </div>
+                                </template>
+                                <p class="text-xs text-ink-3" x-show="!form.sources.length">Источников нет.</p>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Видео -->
+                <details class="card group">
+                    <summary class="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold">
+                        <svg class="size-4 text-ink-3"><use href="/static/icons.svg#i-video"/></svg>
+                        Видео-кнопки под постом
+                        <span class="ml-auto text-xs font-normal text-ink-3" x-text="videoLinks.length || ''"></span>
+                        <svg class="size-4 text-ink-3 transition group-open:rotate-180"><use href="/static/icons.svg#i-chevron-down"/></svg>
+                    </summary>
+                    <div class="space-y-2 border-t border-line px-4 py-4">
+                        <template x-for="l in videoLinks" :key="l.id">
+                            <div class="flex items-center gap-2 text-sm">
+                                <span class="badge badge-neutral" x-text="l.platform"></span>
+                                <a class="min-w-0 flex-1 truncate text-accent-ink hover:underline" :href="l.url" target="_blank" rel="noopener" x-text="l.url"></a>
+                                <button type="button" class="btn-icon size-8" @click="removeVideo(l)" aria-label="Удалить видео"><svg class="size-4"><use href="/static/icons.svg#i-trash"/></svg></button>
+                            </div>
+                        </template>
+                        <div class="flex gap-2">
+                            <select class="select w-36" x-model="newVideo.platform" aria-label="Платформа">
+                                <option value="youtube">YouTube</option>
+                                <option value="vk_video">VK Video</option>
+                                <option value="rutube">Rutube</option>
+                                <option value="vimeo">Vimeo</option>
+                                <option value="other">Другое</option>
+                            </select>
+                            <input type="url" class="input flex-1" x-model="newVideo.url" placeholder="https://…" @keydown.enter.prevent="addVideo()">
+                            <button type="button" class="btn btn-secondary" @click="addVideo()" :disabled="!newVideo.url">Добавить</button>
+                        </div>
+                        <p class="hint">Несколько зеркал одного ролика — отдельными кнопками.</p>
+                    </div>
+                </details>
+            </div>
+
+            <!-- ── Правая колонка: публикация и превью ── -->
+            <div class="min-w-0 space-y-5 xl:sticky xl:top-0 xl:self-start">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Публикация</span>
+                        <span class="text-xs text-ink-3" x-text="'Часовой пояс: ' + tz"></span>
+                    </div>
+                    <div class="space-y-4 p-4">
+                        <div>
+                            <label class="label" for="post-when">Дата и время</label>
+                            <input id="post-when" x-ref="when" type="datetime-local" class="input" x-model="form.scheduled_local">
+                            <p class="hint" x-show="!isScheduled">Дата без планирования — просто место в плане.</p>
+                        </div>
+                        <div>
+                            <span class="label">Куда</span>
+                            <div class="space-y-1.5">
+                                <template x-for="t in targets" :key="t.id">
+                                    <label class="flex items-center gap-2 text-sm" :class="!t.is_active && 'opacity-60'">
+                                        <input type="checkbox" class="checkbox" :value="t.id" x-model="selectedTargets" :disabled="!t.is_active">
+                                        <span x-text="t.display_name"></span>
+                                        <span class="text-xs text-ink-3" x-text="t.external_id"></span>
+                                    </label>
+                                </template>
+                                <p class="text-sm text-ink-3" x-show="!targets.length">
+                                    Нет площадок. <a class="text-accent-ink underline" href="/settings">Добавьте канал</a>.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-2" x-show="canSchedule">
+                            <button type="button" class="btn btn-primary flex-1" @click="schedule()" :disabled="busy || !targets.length || problems.length > 0"
+                                    :data-tip="problems.length ? 'Исправьте разметку' : ''">
+                                <svg class="size-4"><use href="/static/icons.svg#i-clock"/></svg>
+                                <span x-text="isScheduled ? 'Перепланировать' : 'Запланировать'"></span>
+                            </button>
+                            <button type="button" class="btn btn-secondary" @click="publishNow()" :disabled="busy || !targets.length || problems.length > 0">
+                                <svg class="size-4"><use href="/static/icons.svg#i-send"/></svg> Сейчас
+                            </button>
+                        </div>
+                        <button type="button" class="btn btn-ghost w-full" x-show="isScheduled && !published" @click="unschedule()" :disabled="busy">
+                            Снять с публикации
+                        </button>
+
+                        <template x-if="tasks.length">
+                            <div class="space-y-2 border-t border-line pt-3">
+                                <span class="section-title">Статус по площадкам</span>
+                                <template x-for="t in tasks" :key="t.id">
+                                    <div class="rounded-lg bg-subtle px-3 py-2 text-sm">
+                                        <div class="flex items-center gap-2">
+                                            <span class="min-w-0 flex-1 truncate font-medium" x-text="targetName(t.target_id)"></span>
+                                            <span class="badge" :class="taskBadge(t.status)" x-text="taskLabel(t.status)"></span>
+                                        </div>
+                                        <p class="mt-1 text-xs text-danger" x-show="t.last_error" x-text="t.last_error"></p>
+                                        <div class="mt-1.5 flex flex-wrap items-center gap-3 text-xs">
+                                            <span class="text-ink-3" x-show="t.published_at" x-text="fmtDateTime(t.published_at)"></span>
+                                            <a class="text-accent-ink hover:underline" x-show="t.permalink" :href="t.permalink" target="_blank" rel="noopener">Открыть пост ↗</a>
+                                            <button type="button" class="text-accent-ink hover:underline" x-show="t.status === 'failed'" @click="retry(t)">Повторить</button>
+                                            <button type="button" class="text-ink-3 hover:text-danger" x-show="['pending', 'failed'].includes(t.status)" @click="cancelTask(t)">Отменить</button>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Превью -->
+                <div class="card hidden xl:block">
+                    <div class="card-header">
+                        <span class="card-title">Как увидят подписчики</span>
+                        <span class="text-xs text-ink-3">Telegram</span>
+                    </div>
+                    <div class="p-3">
+                        <div class="tg-frame">
+                            <template x-if="form.cover_image_url">
+                                <img :src="form.cover_image_url" alt="" class="max-w-md rounded-t-2xl object-cover" style="max-height: 220px; width: 100%;" @error="$el.style.display = 'none'">
+                            </template>
+                            <div class="tg-bubble" :class="form.cover_image_url && 'rounded-t-none'">
+                                <div class="tg-text"><b x-text="form.title"></b><span x-show="form.title" x-text="'\n\n'"></span><span x-html="preview"></span><span class="text-ink-3" x-show="!form.title && !form.content_html">Здесь появится текст поста</span></div>
+                                <div class="tg-meta"><span x-text="previewTime"></span></div>
+                            </div>
+                            <template x-for="l in videoLinks" :key="l.id">
+                                <span class="tg-button max-w-md" x-text="'▶️ Смотреть ' + ({youtube: 'на YouTube', vk_video: 'в VK Video', rutube: 'на Rutube', vimeo: 'на Vimeo'}[l.platform] || 'видео')"></span>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Прочие действия -->
+                <div class="flex flex-wrap items-center gap-2 text-xs text-ink-3" x-show="!isNew">
+                    <span x-show="a" x-text="a ? 'Создан ' + fmtRelative(a.created_at) + ' · изменён ' + fmtRelative(a.updated_at) : ''"></span>
+                    <span class="flex-1"></span>
+                    <button type="button" class="btn btn-ghost btn-sm" @click="archive()" x-show="a && a.state !== 'archived'" :disabled="busy">
+                        <svg class="size-3.5"><use href="/static/icons.svg#i-archive"/></svg> В архив
+                    </button>
+                    <button type="button" class="btn btn-danger-ghost btn-sm" @click="remove()" :disabled="busy">
+                        <svg class="size-3.5"><use href="/static/icons.svg#i-trash"/></svg> Удалить
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

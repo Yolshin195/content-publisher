@@ -9,8 +9,8 @@ SHELL := /usr/bin/env bash
 # иначе — встроенный провайдер `podman compose`.
 COMPOSE := $(shell command -v podman-compose >/dev/null 2>&1 && echo podman-compose || echo "podman compose")
 
-INFRA_FILE   := docker-compose.infra.yml
-STACK_FILE   := docker-compose.yml
+INFRA_FILE   := compose.infra.yml
+STACK_FILE   := compose.yml
 
 CORE_ENV     := crates/core-service/.env
 TELEGRAM_ENV := crates/telegram-publisher/.env
@@ -25,9 +25,24 @@ help: ## Показать список доступных команд
 ## ── Подготовка окружения ─────────────────────────────────────────────────────
 
 .PHONY: env
-env: ## Создать .env файлы сервисов из .env.example, если их ещё нет
-	@if [ ! -f $(CORE_ENV) ]; then 		cp crates/core-service/.env.example $(CORE_ENV); 		echo "→ создан $(CORE_ENV)"; 	else 		echo "→ $(CORE_ENV) уже существует, пропускаю"; 	fi
-	@if [ ! -f $(TELEGRAM_ENV) ]; then 		cp crates/telegram-publisher/.env.example $(TELEGRAM_ENV); 		echo "→ создан $(TELEGRAM_ENV) — впишите в него реальный TELEGRAM_BOT_TOKEN!"; 	else 		echo "→ $(TELEGRAM_ENV) уже существует, пропускаю"; 	fi
+env: ## Создать .env файлы сервисов из .env.example (пароль и токен генерируются случайно)
+	@if [ ! -f $(CORE_ENV) ]; then \
+		cp crates/core-service/.env.example $(CORE_ENV); \
+		pass=$$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n'); \
+		token=$$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n'); \
+		sed -i.bak -e "s/^ADMIN_PASSWORD=.*/ADMIN_PASSWORD=$$pass/" -e "s/^API_TOKEN=.*/API_TOKEN=$$token/" $(CORE_ENV); \
+		rm -f $(CORE_ENV).bak; \
+		echo "→ создан $(CORE_ENV) со случайными ADMIN_PASSWORD и API_TOKEN"; \
+		echo "  пароль для входа в интерфейс: $$pass"; \
+	else \
+		echo "→ $(CORE_ENV) уже существует, пропускаю"; \
+	fi
+	@if [ ! -f $(TELEGRAM_ENV) ]; then \
+		cp crates/telegram-publisher/.env.example $(TELEGRAM_ENV); \
+		echo "→ создан $(TELEGRAM_ENV) — впишите в него реальный TELEGRAM_BOT_TOKEN!"; \
+	else \
+		echo "→ $(TELEGRAM_ENV) уже существует, пропускаю"; \
+	fi
 
 .PHONY: sqlx-stub
 sqlx-stub: ## Гарантировать наличие .sqlx/ (нужно для COPY .sqlx в Dockerfile)
@@ -39,14 +54,14 @@ sqlx-stub: ## Гарантировать наличие .sqlx/ (нужно дл�
 .PHONY: sqlx-prepare
 sqlx-prepare: ## Реально пересобрать .sqlx-кэш (нужны локальные cargo, sqlx-cli и поднятая инфра)
 	@command -v sqlx >/dev/null 2>&1 || { echo "sqlx-cli не найден. Установите: cargo install sqlx-cli --no-default-features --features postgres,rustls"; exit 1; }
-	./prepare-sqlx.sh
+	./scripts/prepare-sqlx.sh
 
 ## ── Локальная разработка (сервисы через `cargo run`, БД — в Podman) ─────────
 
 .PHONY: dev-infra-up
 dev-infra-up: env ## Поднять только Postgres (для `cargo run` на хосте)
 	$(COMPOSE) -f $(INFRA_FILE) up -d
-	@echo "→ Postgres поднят. Дальше: ./prepare-sqlx.sh && cargo run --bin core-service"
+	@echo "→ Postgres поднят. Дальше: cargo run --bin core-service"
 
 .PHONY: dev-infra-down
 dev-infra-down: ## Остановить Postgres, поднятый для локальной разработки
@@ -61,7 +76,7 @@ build: env sqlx-stub ## Собрать образы core-service и telegram-pub
 .PHONY: up
 up: env sqlx-stub ## Подготовить всё и запустить полный стек (Postgres + оба сервиса)
 	$(COMPOSE) -f $(STACK_FILE) up -d --build
-	@echo "→ core-service:       http://localhost:8080  (Swagger UI — /docs)"
+	@echo "→ core-service:       http://localhost:8080  (Swagger UI — /docs, MCP — /mcp)"
 	@echo "→ telegram-publisher: http://localhost:8081/health"
 
 .PHONY: down
@@ -92,3 +107,27 @@ fclean: clean ## clean + удалить собранные образы
 .PHONY: check
 check: ## Быстрая локальная проверка компиляции (нужен Rust-тулчейн на хосте)
 	cargo check --workspace
+
+.PHONY: test
+test: ## Юнит-тесты всего workspace
+	cargo test --workspace
+
+## ── Веб-интерфейс ────────────────────────────────────────────────────────────
+
+.PHONY: css
+css: ## Пересобрать Tailwind CSS после правок шаблонов (нужен Node.js; результат коммитится)
+	cd crates/core-service/frontend && npm install --no-audit --no-fund && npm run build
+
+.PHONY: css-watch
+css-watch: ## Пересобирать CSS при изменении шаблонов
+	cd crates/core-service/frontend && npm run watch
+
+## ── Промпты ↔ git ───────────────────────────────────────────────────────────
+
+.PHONY: prompts-pull
+prompts-pull: ## Выгрузить промпты из сервиса в prompts/*.md (затем git diff / commit)
+	./scripts/prompts-sync.sh pull
+
+.PHONY: prompts-push
+prompts-push: ## Загрузить prompts/*.md в сервис (каждое изменение станет новой версией)
+	./scripts/prompts-sync.sh push

@@ -66,6 +66,7 @@ fn parse_recipient(external_id: &str) -> Result<Recipient, String> {
 fn parse_mode_from_config(config: &serde_json::Value) -> ParseMode {
     match config.get("parse_mode").and_then(|v| v.as_str()) {
         Some(v) if v.eq_ignore_ascii_case("markdownv2") => ParseMode::MarkdownV2,
+        #[allow(deprecated)]
         Some(v) if v.eq_ignore_ascii_case("markdown") => ParseMode::Markdown,
         _ => ParseMode::Html,
     }
@@ -117,13 +118,37 @@ fn build_keyboard(request: &PublishRequest) -> Option<InlineKeyboardMarkup> {
     }
 }
 
-fn truncate(text: &str, limit: usize) -> String {
-    if text.chars().count() <= limit {
-        text.to_string()
-    } else {
-        let truncated: String = text.chars().take(limit.saturating_sub(1)).collect();
-        format!("{truncated}…")
+/// Укладывает текст в лимит Telegram. Лимит считается по видимым символам (после
+/// разбора разметки), поэтому HTML-пост, который помещается, отправляется как есть.
+/// Если не помещается — обрезать HTML посередине тега нельзя (Telegram отклонит
+/// сообщение), поэтому разметка снимается и обрезается простой текст.
+fn fit_to_limit(text: &str, limit: usize, parse_mode: ParseMode) -> String {
+    let is_html = matches!(parse_mode, ParseMode::Html);
+    let plain = if is_html { html_to_plain(text) } else { text.to_string() };
+    if plain.chars().count() <= limit {
+        return text.to_string();
     }
+    let truncated: String = plain.chars().take(limit.saturating_sub(1)).collect();
+    let truncated = format!("{}…", truncated.trim_end());
+    if is_html {
+        escape_html(&truncated)
+    } else {
+        truncated
+    }
+}
+
+fn html_to_plain(html: &str) -> String {
+    let mut out = String::with_capacity(html.len());
+    let mut in_tag = false;
+    for ch in html.chars() {
+        match ch {
+            '<' => in_tag = true,
+            '>' if in_tag => in_tag = false,
+            _ if !in_tag => out.push(ch),
+            _ => {}
+        }
+    }
+    out.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&amp;", "&")
 }
 
 async fn send_text_only(
@@ -133,7 +158,7 @@ async fn send_text_only(
     parse_mode: ParseMode,
     keyboard: Option<InlineKeyboardMarkup>,
 ) -> Result<i32, String> {
-    let text = truncate(text, TELEGRAM_MESSAGE_LIMIT);
+    let text = fit_to_limit(text, TELEGRAM_MESSAGE_LIMIT, parse_mode);
     let mut request = bot.send_message(recipient, text).parse_mode(parse_mode);
     if let Some(keyboard) = keyboard {
         request = request.reply_markup(keyboard);
@@ -151,7 +176,7 @@ async fn send_with_photo(
     keyboard: Option<InlineKeyboardMarkup>,
 ) -> Result<i32, String> {
     let photo_url = url::Url::parse(photo_url).map_err(|e| format!("invalid cover_image_url: {e}"))?;
-    let caption = truncate(caption, TELEGRAM_CAPTION_LIMIT);
+    let caption = fit_to_limit(caption, TELEGRAM_CAPTION_LIMIT, parse_mode);
 
     let mut request = bot.send_photo(recipient, InputFile::url(photo_url)).caption(caption).parse_mode(parse_mode);
     if let Some(keyboard) = keyboard {
@@ -170,4 +195,24 @@ fn build_permalink(external_id: &str, message_id: i32) -> Option<String> {
         return Some(format!("https://t.me/{username}/{message_id}"));
     }
     external_id.strip_prefix("-100").map(|internal_id| format!("https://t.me/c/{internal_id}/{message_id}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn short_html_is_sent_as_is() {
+        let html = format!("<b>{}</b>", "x".repeat(4000));
+        assert_eq!(fit_to_limit(&html, TELEGRAM_MESSAGE_LIMIT, ParseMode::Html), html);
+    }
+
+    #[test]
+    fn long_html_is_truncated_without_breaking_tags() {
+        let html = format!("<b>{}</b> &amp; <a href=\"https://x\">link</a>", "y".repeat(1100));
+        let out = fit_to_limit(&html, TELEGRAM_CAPTION_LIMIT, ParseMode::Html);
+        assert!(!out.contains('<'), "{out}");
+        assert_eq!(out.chars().count(), TELEGRAM_CAPTION_LIMIT);
+        assert!(out.ends_with('…'));
+    }
 }

@@ -1,0 +1,181 @@
+{% extends "layout.html" %}
+{% block title %}Входящие{% endblock %}
+{% block mobile_title %}Входящие{% endblock %}
+{% block content %}
+<div x-data="inboxPage" @keydown.escape.window="rejectId = null">
+    <div class="flex flex-wrap items-end gap-4">
+        <div class="flex-1">
+            <h1 class="text-2xl font-semibold tracking-tight">Входящие</h1>
+            <p class="mt-1 text-sm text-ink-2">
+                {% if total > 0 %}Claude предложил {{ total_label }} — решите, что публиковать.{% else %}Здесь появляются посты, которые предлагает Claude.{% endif %}
+            </p>
+        </div>
+        {% if !tags.is_empty() %}
+        <div class="flex flex-wrap items-center gap-1.5">
+            <a href="/inbox" class="badge {% if tag.is_empty() %}st-scheduled{% else %}badge-neutral hover:ring-line-strong{% endif %}">Все</a>
+            {% for (t, c) in tags %}
+            <a href="/inbox?tag={{ t }}" class="badge {% if tag == t.as_str() %}st-scheduled{% else %}badge-neutral hover:ring-line-strong{% endif %}">#{{ t }} <span class="text-ink-3">{{ c }}</span></a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    {% if let Some(i) = interests %}
+    <section class="card mt-6 overflow-hidden" aria-labelledby="interests-title">
+        <div class="grid gap-0 lg:grid-cols-[minmax(0,1fr)_300px]">
+            <div class="p-5">
+                <div class="flex items-center gap-2">
+                    <span class="grid size-7 place-items-center rounded-lg bg-accent-soft text-accent-ink"><svg class="size-4"><use href="/static/icons.svg#i-bulb"/></svg></span>
+                    <h2 id="interests-title" class="text-sm font-semibold">Сейчас вам интересно</h2>
+                    <span class="text-xs text-ink-3">· по чатам, {{ i.updated }}</span>
+                </div>
+                {% if !i.summary.is_empty() %}<p class="mt-3 max-w-3xl text-sm leading-relaxed text-ink-2">{{ i.summary }}</p>{% endif %}
+                <div class="mt-4 flex flex-wrap gap-2">
+                    {% for t in i.topics %}
+                    <span class="inline-flex items-center gap-2 rounded-lg bg-subtle px-2.5 py-1.5 text-sm ring-1 ring-line" data-tip="{% if t.note.is_empty() %}Вес {{ t.weight }} из 10{% else %}{{ t.note }} · вес {{ t.weight }}/10{% endif %}">
+                        {{ t.name }}
+                        <span class="h-1.5 w-10 overflow-hidden rounded-full bg-line" aria-hidden="true"><span class="block h-full rounded-full bg-series-1" style="width: {{ t.pct }}%"></span></span>
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% if !trends.is_empty() %}
+            <div class="border-t border-line bg-subtle/40 p-5 lg:border-t-0 lg:border-l">
+                <h3 class="section-title">Темы за последние недели</h3>
+                <ul class="mt-3 space-y-2">
+                    {% for t in trends %}
+                    <li class="grid grid-cols-[minmax(0,1fr)_96px] items-center gap-3 text-sm" data-tip="{{ t.tip }}">
+                        <span class="truncate">{{ t.name }}</span>
+                        <span class="h-2 overflow-hidden rounded-full bg-line" aria-hidden="true"><span class="block h-full rounded-full bg-series-1" style="width: {{ t.pct }}%"></span></span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+    {% endif %}
+
+    <div class="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <section aria-label="Предложения" class="space-y-4">
+            {% for p in suggestions %}
+            <article class="card group p-5 transition hover:ring-line-strong" x-show="!hidden['{{ p.id }}']" x-transition.duration.200ms>
+                <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-3">
+                    <span class="badge badge-ai"><svg class="size-3"><use href="/static/icons.svg#i-sparkles"/></svg> Claude</span>
+                    {% if let Some(pr) = p.prompt %}<a href="/prompts?key={{ p.prompt_key }}" class="badge badge-neutral hover:ring-line-strong" data-tip="Промпт, по которому написан пост">{{ pr }}</a>{% endif %}
+                    <span>{{ p.created }}</span>
+                    {% if !p.when.is_empty() %}<span class="inline-flex items-center gap-1"><svg class="size-3.5"><use href="/static/icons.svg#i-clock"/></svg> предлагает на {{ p.when }}</span>{% endif %}
+                </div>
+                <h2 class="mt-2 text-lg font-semibold leading-snug">
+                    <button type="button" class="text-left hover:text-accent-ink" @click="openPost('{{ p.id }}')">{{ p.title }}</button>
+                </h2>
+                <p class="mt-2 line-clamp-4 text-sm leading-relaxed text-ink-2">{{ p.snippet }}</p>
+                {% if let Some(r) = p.rationale %}
+                <div class="mt-3 flex gap-2 rounded-lg bg-amber-50/70 px-3 py-2 text-sm text-ink-2 dark:bg-amber-400/5">
+                    <svg class="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-300"><use href="/static/icons.svg#i-bulb"/></svg>
+                    <span>{{ r }}</span>
+                </div>
+                {% endif %}
+                <div class="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
+                    {% for t in p.tags %}<a href="/inbox?tag={{ t }}" class="text-ink-3 hover:text-ink">#{{ t }}</a>{% endfor %}
+                    {% if !p.sources.is_empty() %}
+                    <span class="text-ink-3">·</span>
+                    {% for (title, url) in p.sources %}{% if loop.index <= 3 %}<a href="{{ url }}" target="_blank" rel="noopener" class="max-w-48 truncate text-accent-ink hover:underline">{{ title }}</a>{% endif %}{% endfor %}
+                    {% if p.sources.len() > 3 %}<span class="text-ink-3">+{{ p.sources.len() - 3 }}</span>{% endif %}
+                    {% endif %}
+                </div>
+                <div class="mt-4 flex flex-wrap gap-2 border-t border-line pt-4">
+                    <button type="button" class="btn btn-primary btn-sm" @click="openPost('{{ p.id }}')">
+                        <svg class="size-4"><use href="/static/icons.svg#i-pencil"/></svg> Открыть
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" @click="accept('{{ p.id }}')">
+                        <svg class="size-4"><use href="/static/icons.svg#i-check"/></svg> Принять
+                    </button>
+                    <button type="button" class="btn btn-danger-ghost btn-sm" data-title="{{ p.title }}" @click="askReject('{{ p.id }}', $el.dataset.title)">
+                        <svg class="size-4"><use href="/static/icons.svg#i-x"/></svg> Отклонить
+                    </button>
+                </div>
+            </article>
+            {% endfor %}
+
+            {% if suggestions.is_empty() %}
+            <div class="card flex flex-col items-center px-6 py-16 text-center">
+                <span class="grid size-12 place-items-center rounded-2xl bg-accent-soft text-accent-ink"><svg class="size-6"><use href="/static/icons.svg#i-inbox"/></svg></span>
+                <h2 class="mt-4 text-base font-semibold">{% if tag.is_empty() %}Новых предложений нет{% else %}Нет предложений с тегом #{{ tag }}{% endif %}</h2>
+                <p class="mt-1 max-w-md text-sm text-ink-2">
+                    Claude добавляет сюда посты по расписанию: новости по технологиям и идеи из ваших чатов.
+                    Настроить задачи можно в разделе <a href="/settings#claude" class="text-accent-ink underline">Настройки → Claude</a>.
+                </p>
+                <button type="button" class="btn btn-secondary mt-5" @click="newPost()"><svg class="size-4"><use href="/static/icons.svg#i-plus"/></svg> Написать пост самому</button>
+            </div>
+            {% endif %}
+        </section>
+
+        <aside class="space-y-6">
+            <section class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Ближайшие публикации</h2>
+                    <a href="/calendar" class="text-xs text-accent-ink hover:underline">План →</a>
+                </div>
+                <ul class="divide-y divide-line">
+                    {% for p in upcoming %}
+                    <li>
+                        <button type="button" class="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-subtle" @click="openPost('{{ p.id }}')">
+                            <span class="dot dot-{{ p.status }} mt-1.5"></span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block truncate text-sm font-medium">{{ p.title }}</span>
+                                <span class="block text-xs text-ink-3">{{ p.when }}</span>
+                            </span>
+                        </button>
+                    </li>
+                    {% endfor %}
+                    {% if upcoming.is_empty() %}<li class="px-4 py-6 text-center text-sm text-ink-3">Ничего не запланировано</li>{% endif %}
+                </ul>
+            </section>
+
+            {% if !rejected.is_empty() %}
+            <section class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Недавно отклонённые</h2>
+                    <a href="/posts?state=rejected" class="text-xs text-accent-ink hover:underline">Все →</a>
+                </div>
+                <ul class="divide-y divide-line">
+                    {% for p in rejected %}
+                    <li class="flex items-start gap-2 px-4 py-3">
+                        <button type="button" class="min-w-0 flex-1 text-left" @click="openPost('{{ p.id }}')">
+                            <span class="block truncate text-sm">{{ p.title }}</span>
+                            <span class="block truncate text-xs text-ink-3">{% if let Some(f) = p.feedback %}«{{ f }}»{% else %}без причины{% endif %}</span>
+                        </button>
+                        <button type="button" class="btn-icon size-8" @click="restore('{{ p.id }}')" data-tip="Вернуть в предложения" aria-label="Вернуть в предложения">
+                            <svg class="size-4"><use href="/static/icons.svg#i-undo"/></svg>
+                        </button>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <p class="border-t border-line px-4 py-2.5 text-xs text-ink-3">Claude читает причины отказов и не повторяет такие темы.</p>
+            </section>
+            {% endif %}
+        </aside>
+    </div>
+
+    <!-- Диалог отклонения -->
+    <div class="fixed inset-0 z-50 grid place-items-center p-4" x-show="rejectId" x-cloak role="dialog" aria-modal="true" aria-labelledby="reject-title">
+        <div class="absolute inset-0 bg-black/40" @click="rejectId = null" x-show="rejectId" x-transition.opacity></div>
+        <div class="card relative w-full max-w-md p-5 shadow-xl" x-show="rejectId" x-transition>
+            <h2 id="reject-title" class="text-base font-semibold">Отклонить предложение?</h2>
+            <p class="mt-1 truncate text-sm text-ink-2" x-text="rejectTitle"></p>
+            <div class="mt-4 flex flex-wrap gap-1.5">
+                <template x-for="r in reasons" :key="r">
+                    <button type="button" class="badge badge-neutral cursor-pointer hover:ring-line-strong" @click="rejectReason = rejectReason ? rejectReason + '; ' + r : r" x-text="r"></button>
+                </template>
+            </div>
+            <label class="label mt-3" for="reject-reason">Причина <span class="font-normal text-ink-3">(Claude учтёт её)</span></label>
+            <textarea id="reject-reason" x-ref="reason" class="textarea" rows="3" x-model="rejectReason" @keydown.ctrl.enter="confirmReject()" @keydown.meta.enter="confirmReject()"></textarea>
+            <div class="mt-4 flex justify-end gap-2">
+                <button type="button" class="btn btn-ghost" @click="rejectId = null">Отмена</button>
+                <button type="button" class="btn btn-danger" @click="confirmReject()">Отклонить</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

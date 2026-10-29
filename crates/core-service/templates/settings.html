@@ -1,0 +1,139 @@
+{% extends "layout.html" %}
+{% block title %}Настройки{% endblock %}
+{% block mobile_title %}Настройки{% endblock %}
+{% block width %}max-w-5xl{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold tracking-tight">Настройки</h1>
+
+<!-- Площадки -->
+<section class="mt-6" x-data="settingsPage(JSON.parse(document.getElementById('targets-data').textContent))" aria-labelledby="targets-title">
+    <script type="application/json" id="targets-data">{{ targets_json|safe }}</script>
+    <div class="flex items-end gap-3">
+        <div class="flex-1">
+            <h2 id="targets-title" class="text-lg font-semibold">Каналы публикации</h2>
+            <p class="mt-1 text-sm text-ink-2">Куда уходят посты. Бот из <code class="font-mono text-xs">TELEGRAM_BOT_TOKEN</code> должен быть администратором канала.</p>
+        </div>
+        <button type="button" class="btn btn-secondary" @click="adding = !adding"><svg class="size-4"><use href="/static/icons.svg#i-plus"/></svg> Добавить канал</button>
+    </div>
+
+    <form class="card mt-4 grid gap-4 p-4 sm:grid-cols-2" x-show="adding" x-cloak x-transition @submit.prevent="add()">
+        <div>
+            <label class="label" for="t-ext">Канал</label>
+            <input id="t-ext" class="input font-mono" x-model="form.external_id" placeholder="@my_channel или -1001234567890" required>
+            <p class="hint">Публичный @username или числовой id приватного канала.</p>
+        </div>
+        <div>
+            <label class="label" for="t-name">Название</label>
+            <input id="t-name" class="input" x-model="form.display_name" placeholder="Мой канал">
+        </div>
+        <div>
+            <label class="label" for="t-platform">Платформа</label>
+            <select id="t-platform" class="select" x-model="form.platform">
+                <option value="telegram">Telegram</option>
+                <option value="vk">VK (нужен свой Publisher)</option>
+                <option value="x">X (нужен свой Publisher)</option>
+            </select>
+        </div>
+        <div>
+            <label class="label" for="t-mode">Разметка</label>
+            <select id="t-mode" class="select" x-model="form.parse_mode">
+                <option value="html">HTML (рекомендуется)</option>
+                <option value="markdownv2">MarkdownV2</option>
+            </select>
+        </div>
+        <div class="flex justify-end gap-2 sm:col-span-2">
+            <button type="button" class="btn btn-ghost" @click="adding = false">Отмена</button>
+            <button type="submit" class="btn btn-primary">Добавить</button>
+        </div>
+    </form>
+
+    <div class="card mt-4 divide-y divide-line">
+        <template x-for="t in targets" :key="t.id">
+            <div class="flex flex-wrap items-center gap-3 px-4 py-3">
+                <span class="grid size-9 place-items-center rounded-lg bg-accent-soft text-accent-ink"><svg class="size-4"><use href="/static/icons.svg#i-send"/></svg></span>
+                <div class="min-w-0 flex-1">
+                    <template x-if="editing !== t.id">
+                        <button type="button" class="font-medium hover:text-accent-ink" @click="startEdit(t)" x-text="t.display_name" data-tip="Переименовать"></button>
+                    </template>
+                    <template x-if="editing === t.id">
+                        <form class="flex gap-2" @submit.prevent="saveName(t)">
+                            <input class="input py-1" x-model="editName" @keydown.escape="editing = null" x-init="$nextTick(() => $el.focus())">
+                            <button class="btn btn-primary btn-sm">OK</button>
+                        </form>
+                    </template>
+                    <p class="text-xs text-ink-3"><span x-text="t.platform"></span> · <span class="font-mono" x-text="t.external_id"></span></p>
+                </div>
+                <button type="button" role="switch" :aria-checked="t.is_active" @click="toggle(t)"
+                        class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors" :class="t.is_active ? 'bg-accent' : 'bg-line-strong'"
+                        :data-tip="t.is_active ? 'Выключить' : 'Включить'">
+                    <span class="inline-block size-5 rounded-full bg-white shadow transition-transform" :class="t.is_active ? 'translate-x-5' : 'translate-x-0.5'"></span>
+                </button>
+                <button type="button" class="btn-icon hover:text-danger" @click="remove(t)" aria-label="Удалить" data-tip="Удалить"><svg class="size-4"><use href="/static/icons.svg#i-trash"/></svg></button>
+            </div>
+        </template>
+        <p class="px-4 py-8 text-center text-sm text-ink-3" x-show="!targets.length">Каналов пока нет — добавьте первый, чтобы публиковать посты.</p>
+    </div>
+    {% if publishers.is_empty() %}
+    <p class="mt-2 flex items-center gap-1.5 text-xs text-warn"><svg class="size-3.5"><use href="/static/icons.svg#i-alert"/></svg> Не задан ни один Publisher (PUBLISHER_TELEGRAM_URL) — публикация работать не будет.</p>
+    {% endif %}
+</section>
+
+<!-- Claude -->
+<section id="claude" class="mt-10" aria-labelledby="claude-title">
+    <h2 id="claude-title" class="text-lg font-semibold">Claude</h2>
+    <p class="mt-1 text-sm text-ink-2">Claude подключается к приложению как коннектор (MCP) и по расписанию берёт промпты, предлагает посты и записывает ваши интересы.</p>
+
+    <div class="mt-4 grid gap-4 md:grid-cols-2">
+        <div class="card p-5">
+            <div class="flex items-center gap-2">
+                <span class="grid size-7 place-items-center rounded-full bg-accent text-xs font-semibold text-white">1</span>
+                <h3 class="font-semibold">Подключить коннектор</h3>
+            </div>
+            <p class="mt-2 text-sm text-ink-2">claude.ai → Настройки → Коннекторы → «Добавить свой коннектор», адрес:</p>
+            <div class="mt-3 flex items-center gap-2 rounded-lg bg-subtle px-3 py-2 ring-1 ring-line">
+                <code class="min-w-0 flex-1 truncate font-mono text-xs">{{ mcp_url }}?token=<span class="text-accent-ink">API_TOKEN</span></code>
+                <button type="button" class="btn-icon size-7" onclick="copyText('{{ mcp_url }}?token=', 'Адрес скопирован — допишите токен')" aria-label="Скопировать адрес" data-tip="Скопировать"><svg class="size-4"><use href="/static/icons.svg#i-copy"/></svg></button>
+            </div>
+            <p class="mt-2 text-xs text-ink-3">Вместо API_TOKEN подставьте значение из переменной окружения сервера. Можно и заголовком <code class="font-mono">Authorization: Bearer …</code>.</p>
+            {% if !token_configured && shell.auth_enabled %}
+            <p class="mt-3 flex items-start gap-1.5 rounded-lg bg-warn-soft px-3 py-2 text-xs text-warn"><svg class="mt-px size-3.5 shrink-0"><use href="/static/icons.svg#i-alert"/></svg> API_TOKEN не задан — Claude не сможет подключиться: MCP и API без токена закрыты.</p>
+            {% endif %}
+        </div>
+        <div class="card p-5">
+            <div class="flex items-center gap-2">
+                <span class="grid size-7 place-items-center rounded-full bg-accent text-xs font-semibold text-white">2</span>
+                <h3 class="font-semibold">Настроить задачи по расписанию</h3>
+            </div>
+            <p class="mt-2 text-sm text-ink-2">Попросите Claude создать запланированную задачу с текстом ниже — или просто скажите ему «настрой утренние новости по Rust».</p>
+            <p class="mt-3 text-sm text-ink-2">Доступные инструменты: <span class="font-mono text-xs">get_prompt, list_prompts, save_prompt, create_suggestion, list_posts, record_interests, get_analytics</span> и др.</p>
+            <a href="/docs" class="mt-3 inline-flex items-center gap-1 text-sm text-accent-ink hover:underline">REST API (Swagger) <svg class="size-3.5"><use href="/static/icons.svg#i-external"/></svg></a>
+        </div>
+    </div>
+
+    <div class="mt-4 space-y-3">
+        {% for e in examples %}
+        <div class="card p-4">
+            <div class="flex flex-wrap items-center gap-2">
+                <h4 class="font-medium">{{ e.title }}</h4>
+                <span class="badge badge-neutral"><svg class="size-3"><use href="/static/icons.svg#i-clock"/></svg> {{ e.schedule }}</span>
+                <span class="flex-1"></span>
+                <button type="button" class="btn btn-ghost btn-sm" data-text="{{ e.text }}" onclick="copyText(this.dataset.text, 'Текст задачи скопирован')"><svg class="size-4"><use href="/static/icons.svg#i-copy"/></svg> Скопировать</button>
+            </div>
+            <p class="mt-2 rounded-lg bg-subtle px-3 py-2 text-sm text-ink-2">{{ e.text }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- Система -->
+<section class="mt-10 mb-6" aria-labelledby="sys-title">
+    <h2 id="sys-title" class="text-lg font-semibold">Система</h2>
+    <dl class="card mt-4 divide-y divide-line text-sm">
+        <div class="flex gap-4 px-4 py-3"><dt class="w-48 shrink-0 text-ink-3">Часовой пояс</dt><dd class="font-mono">{{ shell.tz }} <span class="font-sans text-xs text-ink-3">(APP_TIMEZONE)</span></dd></div>
+        <div class="flex gap-4 px-4 py-3"><dt class="w-48 shrink-0 text-ink-3">Адрес сервиса</dt><dd class="font-mono">{{ base_url }} <span class="font-sans text-xs text-ink-3">(PUBLIC_BASE_URL)</span></dd></div>
+        <div class="flex gap-4 px-4 py-3"><dt class="w-48 shrink-0 text-ink-3">Вход в интерфейс</dt><dd>{% if !shell.auth_enabled %}<span class="text-danger">отключён (AUTH_DISABLED=true) — только для локальной разработки</span>{% else if password_configured %}по паролю (ADMIN_PASSWORD){% else %}по API_TOKEN (ADMIN_PASSWORD не задан){% endif %}</dd></div>
+        <div class="flex gap-4 px-4 py-3"><dt class="w-48 shrink-0 text-ink-3">Publisher-сервисы</dt><dd>{% if publishers.is_empty() %}<span class="text-ink-3">не настроены</span>{% else %}{% for p in publishers %}<span class="badge badge-neutral mr-1">{{ p }}</span>{% endfor %}{% endif %}</dd></div>
+        <div class="flex gap-4 px-4 py-3"><dt class="w-48 shrink-0 text-ink-3">Версия</dt><dd class="font-mono text-xs">{{ shell.asset_version }}</dd></div>
+    </dl>
+</section>
+{% endblock %}

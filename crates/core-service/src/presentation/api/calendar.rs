@@ -9,7 +9,7 @@ use crate::state::AppState;
 #[utoipa::path(
     get, path = "/api/calendar/month",
     params(MonthQuery),
-    responses((status = 200, description = "Статьи, сгруппированные по дням месяца", body = [DaySummaryResponse])),
+    responses((status = 200, description = "Статьи, сгруппированные по дням месяца (в часовом поясе APP_TIMEZONE)", body = [DaySummaryResponse])),
     tag = "calendar"
 )]
 pub async fn month_view(
@@ -23,7 +23,7 @@ pub async fn month_view(
 #[utoipa::path(
     get, path = "/api/calendar/week",
     params(WeekQuery),
-    responses((status = 200, description = "Статьи, сгруппированные по дням недели", body = [DaySummaryResponse])),
+    responses((status = 200, description = "Статьи, сгруппированные по дням ISO-недели", body = [DaySummaryResponse])),
     tag = "calendar"
 )]
 pub async fn week_view(
@@ -53,7 +53,12 @@ fn to_response(days: Vec<DaySummary>) -> Vec<DaySummaryResponse> {
             articles: d
                 .articles
                 .into_iter()
-                .map(|a| DayArticleResponse { id: a.id, title: a.title, state: a.state, scheduled_at: a.scheduled_at })
+                .map(|a| DayArticleResponse {
+                    id: a.id,
+                    title: a.title,
+                    state: a.state.as_str().to_string(),
+                    scheduled_at: a.scheduled_at,
+                })
                 .collect(),
         })
         .collect()

@@ -34,3 +34,12 @@ utoipa-swagger-ui = { version = "9.0.2", features = ["axum"] }
 
 reqwest = { version = "0.13.4", features = ["json"] }
 async-trait = "0.1"
+
+# Часовой пояс автора для календаря/аналитики (APP_TIMEZONE).
+chrono-tz = "0.10"
+# Построчный diff версий промптов.
+similar = "2"
+# Подпись сессионной cookie и сравнение токенов.
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"

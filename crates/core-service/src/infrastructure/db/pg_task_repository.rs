@@ -39,14 +39,20 @@ fn row_to_task(row: &sqlx::postgres::PgRow) -> Result<PublicationTask, DomainErr
 #[async_trait]
 impl TaskRepository for PgTaskRepository {
     async fn create(&self, article_id: Uuid, target_id: Uuid) -> Result<PublicationTask, DomainError> {
+        // Опубликованную (или публикуемую прямо сейчас) задачу не трогаем: иначе
+        // перенос даты уже вышедшего поста привёл бы к повторной публикации.
         let sql = format!(
             "INSERT INTO publication_tasks (article_id, target_id) VALUES ($1, $2) \
              ON CONFLICT (article_id, target_id) DO UPDATE \
                SET status = 'pending', attempts = 0, last_error = NULL, updated_at = now() \
+               WHERE publication_tasks.status NOT IN ('published', 'publishing') \
              RETURNING {TASK_COLUMNS}"
         );
-        let row = sqlx::query(&sql).bind(article_id).bind(target_id).fetch_one(&self.pool).await?;
-        row_to_task(&row)
+        let row = sqlx::query(&sql).bind(article_id).bind(target_id).fetch_optional(&self.pool).await?;
+        match row {
+            Some(row) => row_to_task(&row),
+            None => self.get_by_article_and_target(article_id, target_id).await,
+        }
     }
 
     async fn get(&self, id: Uuid) -> Result<PublicationTask, DomainError> {
@@ -78,7 +84,8 @@ impl TaskRepository for PgTaskRepository {
             "SELECT {}, a.scheduled_at as article_scheduled_at \
              FROM publication_tasks t \
              JOIN articles a ON a.id = t.article_id \
-             WHERE t.status = 'pending' AND a.scheduled_at IS NOT NULL AND a.scheduled_at <= now() AND a.deleted_at IS NULL \
+             WHERE t.status = 'pending' AND a.state = 'scheduled' AND a.scheduled_at IS NOT NULL \
+               AND a.scheduled_at <= now() AND a.deleted_at IS NULL \
              ORDER BY a.scheduled_at ASC \
              LIMIT $1 \
              FOR UPDATE OF t SKIP LOCKED",
@@ -149,5 +156,17 @@ impl TaskRepository for PgTaskRepository {
             .execute(&self.pool)
             .await?;
         Ok(())
+    }
+
+    async fn cancel_open_for_article(&self, article_id: Uuid, keep_targets: &[Uuid]) -> Result<u64, DomainError> {
+        let result = sqlx::query(
+            "UPDATE publication_tasks SET status = 'cancelled', updated_at = now() \
+             WHERE article_id = $1 AND status IN ('pending', 'failed') AND NOT (target_id = ANY($2))",
+        )
+        .bind(article_id)
+        .bind(keep_targets)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected())
     }
 }

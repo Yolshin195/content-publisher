@@ -84,8 +84,9 @@ impl PublicationOrchestrator {
             content: PublishContent {
                 title: article.title.clone(),
                 body_html: article.content_html.clone(),
-                // TODO: резолвится через MediaClient по article.cover_media_id, когда Media Service подключён
-                cover_image_url: None,
+                // Прямая ссылка на картинку. TODO: резолвить article.cover_media_id через
+                // MediaClient, когда Media Service будет подключён.
+                cover_image_url: article.cover_image_url.clone(),
                 video_links,
             },
         };
