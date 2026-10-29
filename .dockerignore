@@ -10,3 +10,6 @@ docker-compose.yml
 
 .env
 tree.py
+**/.env
+**/node_modules
+prompts

@@ -1,0 +1,326 @@
+{% extends "layout.html" %}
+{% block title %}Промпты{% endblock %}
+{% block mobile_title %}Промпты{% endblock %}
+{% block width %}max-w-[100rem]{% endblock %}
+{% block content %}
+<div x-data="promptsPage" @keydown.window="onKey($event)">
+    <div class="flex flex-wrap items-end gap-3">
+        <div class="min-w-64 flex-1">
+            <h1 class="text-2xl font-semibold tracking-tight">Промпты</h1>
+            <p class="mt-1 max-w-3xl text-sm text-ink-2">
+                Инструкции для Claude. В задании по расписанию достаточно написать «возьми промпт <code class="rounded bg-subtle px-1 font-mono text-xs">rust_news_template</code>».
+                Подключайте общие части через <code class="rounded bg-subtle px-1 font-mono text-xs">{% raw %}{{> author_style}}{% endraw %}</code>. Каждое сохранение — новая версия.
+            </p>
+        </div>
+        <label class="btn btn-ghost cursor-pointer" data-tip="Загрузить .md файлы с front matter">
+            <svg class="size-4"><use href="/static/icons.svg#i-upload"/></svg> Импорт .md
+            <input type="file" accept=".md,text/markdown" multiple class="sr-only" @change="importFiles($event)">
+        </label>
+        <button type="button" class="btn btn-ghost" @click="exportAll()" data-tip="Все промпты одним файлом (для синхронизации с git есть scripts/prompts-sync.sh)">
+            <svg class="size-4"><use href="/static/icons.svg#i-download"/></svg> Экспорт
+        </button>
+        <button type="button" class="btn btn-secondary" @click="openDialog('folder')"><svg class="size-4"><use href="/static/icons.svg#i-folder-plus"/></svg> Папка</button>
+        <button type="button" class="btn btn-primary" @click="openDialog('prompt')"><svg class="size-4"><use href="/static/icons.svg#i-file-plus"/></svg> Промпт</button>
+    </div>
+
+    <div class="mt-6 grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
+        <!-- ── Дерево ── -->
+        <div class="card flex max-h-[calc(100vh-11rem)] min-h-80 flex-col overflow-hidden lg:sticky lg:top-6">
+            <div class="border-b border-line p-2">
+                <div class="relative">
+                    <svg class="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-ink-3"><use href="/static/icons.svg#i-search"/></svg>
+                    <input type="search" x-model="filter" class="input py-1.5 pl-8" placeholder="Поиск по ключу и названию" aria-label="Поиск промптов">
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-1.5 scroll-thin" role="tree" aria-label="Справочник промптов">
+                <template x-if="loadingTree"><p class="p-4 text-center text-sm text-ink-3">Загрузка…</p></template>
+                <template x-for="row in rows()" :key="row.id">
+                    <div role="treeitem" :aria-expanded="row.kind === 'folder' ? row.open : null" :aria-selected="node?.id === row.id"
+                         draggable="true" @dragstart="dragStart($event, row.id)" @dragover="dragOver($event, row)" @dragleave="dropId = null" @drop="drop($event, row)"
+                         class="group flex cursor-pointer items-center gap-1 rounded-md py-1 pr-1.5 text-sm transition-colors"
+                         :class="[node?.id === row.id ? 'bg-accent-soft text-accent-ink' : 'hover:bg-subtle', dropId === row.id && 'ring-2 ring-accent ring-inset']"
+                         :style="`padding-left: ${row.depth * 14 + 4}px`"
+                         @click="select(row.id)">
+                        <button type="button" class="grid size-5 shrink-0 place-items-center rounded text-ink-3 hover:text-ink" x-show="row.kind === 'folder'"
+                                @click.stop="toggle(row.id)" :aria-label="row.open ? 'Свернуть' : 'Развернуть'">
+                            <svg class="size-3.5 transition-transform" :class="row.open ? '' : '-rotate-90'"><use href="/static/icons.svg#i-chevron-down"/></svg>
+                        </button>
+                        <span class="size-5 shrink-0" x-show="row.kind !== 'folder'"></span>
+                        <svg class="size-4 shrink-0" :class="row.kind === 'folder' ? 'text-amber-500' : 'text-ink-3'">
+                            <use :href="row.kind === 'folder' ? '/static/icons.svg#i-folder' : '/static/icons.svg#i-file'"/>
+                        </svg>
+                        <span class="min-w-0 flex-1 truncate">
+                            <span x-text="row.kind === 'folder' ? row.title : row.key" :class="row.kind === 'prompt' && 'font-mono text-[13px]'"></span>
+                        </span>
+                        <span class="shrink-0 text-[10px] tabular-nums text-ink-3" x-show="row.kind === 'prompt'" x-text="'v' + row.version"></span>
+                    </div>
+                </template>
+                <template x-if="!loadingTree && !rows().length">
+                    <p class="p-4 text-center text-sm text-ink-3" x-text="filter ? 'Ничего не найдено' : 'Справочник пуст'"></p>
+                </template>
+            </div>
+            <div class="border-t border-dashed border-line px-3 py-2 text-center text-xs text-ink-3"
+                 :class="dropId === 'root' && 'bg-accent-soft text-accent-ink'"
+                 @dragover="dragOver($event, null)" @dragleave="dropId = null" @drop="drop($event, null)">
+                Перетащите сюда, чтобы вынести в корень
+            </div>
+        </div>
+
+        <!-- ── Редактор ── -->
+        <div class="min-w-0">
+            <template x-if="!node">
+                <div class="card flex flex-col items-center px-6 py-20 text-center">
+                    <span class="grid size-12 place-items-center rounded-2xl bg-accent-soft text-accent-ink"><svg class="size-6"><use href="/static/icons.svg#i-book"/></svg></span>
+                    <h2 class="mt-4 text-base font-semibold">Выберите промпт слева</h2>
+                    <p class="mt-1 max-w-md text-sm text-ink-2">Или создайте новый. Ключ промпта — его имя для Claude: латиница, цифры, «_», «-», «.».</p>
+                </div>
+            </template>
+
+            <template x-if="node">
+                <div class="card overflow-hidden">
+                    <!-- Шапка узла -->
+                    <div class="flex flex-wrap items-center gap-3 border-b border-line px-5 py-4">
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-xs text-ink-3" x-text="node.path ? node.path.split('/').join(' / ') : 'Корень'"></p>
+                            <div class="mt-0.5 flex flex-wrap items-center gap-2">
+                                <h2 class="truncate text-lg font-semibold" x-text="node.title"></h2>
+                                <template x-if="!isFolder">
+                                    <button type="button" class="badge badge-ai font-mono" @click="copyText(node.key, 'Ключ скопирован')" data-tip="Скопировать ключ">
+                                        <svg class="size-3"><use href="/static/icons.svg#i-key"/></svg><span x-text="node.key"></span>
+                                    </button>
+                                </template>
+                                <span class="badge badge-neutral" x-show="!isFolder" x-text="'версия ' + node.version"></span>
+                                <span class="text-xs text-ink-3" x-text="'изменён ' + fmtRelative(node.updated_at)"></span>
+                            </div>
+                        </div>
+                        <a class="btn-icon" x-show="!isFolder" :href="`/api/prompts/${node.id}/markdown`" data-tip="Скачать .md" aria-label="Скачать .md"><svg class="size-[18px]"><use href="/static/icons.svg#i-download"/></svg></a>
+                        <button type="button" class="btn-icon" @click="openMove()" data-tip="Переместить" aria-label="Переместить"><svg class="size-[18px]"><use href="/static/icons.svg#i-move"/></svg></button>
+                        <button type="button" class="btn-icon hover:text-danger" @click="remove()" data-tip="Удалить" aria-label="Удалить"><svg class="size-[18px]"><use href="/static/icons.svg#i-trash"/></svg></button>
+                    </div>
+
+                    <div class="tabs px-5" x-show="!isFolder" role="tablist">
+                        <button type="button" class="tab" :class="tab === 'edit' && 'is-active'" @click="setTab('edit')" role="tab">Текст</button>
+                        <button type="button" class="tab" :class="tab === 'history' && 'is-active'" @click="setTab('history')" role="tab">
+                            История <span class="ml-1 text-xs text-ink-3" x-text="node.version"></span>
+                        </button>
+                        <button type="button" class="tab" :class="tab === 'posts' && 'is-active'" @click="setTab('posts')" role="tab">Посты по версиям</button>
+                    </div>
+
+                    <!-- Текст -->
+                    <div x-show="tab === 'edit' || isFolder" class="space-y-4 p-5">
+                        <div class="grid gap-4" :class="isFolder ? '' : 'md:grid-cols-[220px_minmax(0,1fr)]'">
+                            <div x-show="!isFolder">
+                                <label class="label" for="p-key">Ключ</label>
+                                <input id="p-key" type="text" class="input font-mono" x-model="form.key" spellcheck="false" autocomplete="off">
+                            </div>
+                            <div>
+                                <label class="label" for="p-title" x-text="isFolder ? 'Название папки' : 'Название'"></label>
+                                <input id="p-title" type="text" class="input" x-model="form.title">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="label" for="p-desc">Описание</label>
+                            <input id="p-desc" type="text" class="input" x-model="form.description" placeholder="Одной строкой: для чего этот промпт">
+                        </div>
+
+                        <template x-if="!isFolder">
+                            <div>
+                                <div class="mb-1.5 flex flex-wrap items-center gap-2">
+                                    <label class="label mb-0" for="p-body">Текст промпта</label>
+                                    <span class="text-xs text-ink-3" x-text="`${stats.lines} строк · ${stats.chars} символов`"></span>
+                                    <span class="flex-1"></span>
+                                    <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                                        <button type="button" class="btn btn-ghost btn-sm" @click="open = !open">
+                                            <svg class="size-3.5"><use href="/static/icons.svg#i-plus"/></svg> Подключить промпт
+                                        </button>
+                                        <div class="absolute right-0 z-20 mt-1 max-h-64 w-64 overflow-y-auto rounded-lg bg-raised p-1 shadow-lg ring-1 ring-line scroll-thin" x-show="open" x-cloak x-transition>
+                                            <template x-for="k in promptKeys.filter((k) => k !== node.key)" :key="k">
+                                                <button type="button" class="block w-full truncate rounded px-2 py-1.5 text-left font-mono text-xs hover:bg-subtle" @click="insertInclude(k); open = false" x-text="k"></button>
+                                            </template>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm" :class="showResolved ? 'btn-primary' : 'btn-ghost'" @click="toggleResolved()" data-tip="Текст с раскрытыми включениями — ровно то, что получит Claude">
+                                        <svg class="size-3.5"><use href="/static/icons.svg#i-eye"/></svg> Как видит Claude
+                                    </button>
+                                </div>
+                                <textarea id="p-body" x-ref="body" x-model="form.body" x-show="!showResolved" spellcheck="false"
+                                          class="textarea min-h-[55vh] resize-y font-mono text-[13px] leading-relaxed"></textarea>
+                                <template x-if="showResolved && resolved">
+                                    <div class="rounded-lg bg-subtle p-4 ring-1 ring-line">
+                                        <div class="mb-3 flex flex-wrap gap-1.5">
+                                            <template x-for="r in resolved.refs" :key="r.key">
+                                                <span class="badge badge-ai font-mono" x-text="`${r.key} v${r.version}`"></span>
+                                            </template>
+                                        </div>
+                                        <template x-for="w in resolved.warnings" :key="w">
+                                            <p class="mb-2 flex items-center gap-1.5 text-xs text-warn"><svg class="size-3.5"><use href="/static/icons.svg#i-alert"/></svg><span x-text="w"></span></p>
+                                        </template>
+                                        <div class="prompt-text max-h-[55vh] overflow-y-auto scroll-thin" x-text="resolved.body"></div>
+                                    </div>
+                                </template>
+                                <div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs" x-show="includes.length">
+                                    <span class="text-ink-3">Подключены:</span>
+                                    <template x-for="k in includes" :key="k">
+                                        <button type="button" class="badge badge-neutral font-mono hover:ring-line-strong" @click="selectByKey(k)" x-text="k"></button>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+
+                        <div class="flex flex-wrap items-center gap-3 border-t border-line pt-4">
+                            <input type="text" class="input max-w-md flex-1" x-model="form.change_note" x-show="!isFolder" placeholder="Что изменилось? (попадёт в историю)" @keydown.enter="save()">
+                            <span class="flex-1"></span>
+                            <span class="text-xs text-warn" x-show="dirty">● не сохранено</span>
+                            <button type="button" class="btn btn-ghost" x-show="dirty" @click="revert()">Отменить правки</button>
+                            <button type="button" class="btn btn-primary" @click="save()" :disabled="!dirty || saving">
+                                Сохранить <span class="kbd border-white/30 bg-white/15 text-white/80">Ctrl S</span>
+                            </button>
+                        </div>
+                        <template x-if="isFolder">
+                            <div class="flex gap-2 border-t border-line pt-4">
+                                <button type="button" class="btn btn-secondary btn-sm" @click="openDialog('prompt', node.id)"><svg class="size-4"><use href="/static/icons.svg#i-file-plus"/></svg> Промпт в этой папке</button>
+                                <button type="button" class="btn btn-ghost btn-sm" @click="openDialog('folder', node.id)"><svg class="size-4"><use href="/static/icons.svg#i-folder-plus"/></svg> Подпапка</button>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- История -->
+                    <div x-show="tab === 'history' && !isFolder" x-cloak class="grid lg:grid-cols-[260px_minmax(0,1fr)]">
+                        <ol class="max-h-[65vh] divide-y divide-line overflow-y-auto border-b border-line scroll-thin lg:border-r lg:border-b-0">
+                            <template x-for="v in versions" :key="v.version">
+                                <li class="px-4 py-3 text-sm" :class="diffFrom === v.version && 'bg-accent-soft/60'">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-semibold tabular-nums" x-text="'v' + v.version"></span>
+                                        <span class="badge" :class="v.author === 'claude' ? 'badge-ai' : 'badge-neutral'" x-text="v.author === 'claude' ? 'Claude' : (v.author === 'seed' ? 'стартовый' : 'вы')"></span>
+                                        <span class="badge st-published" x-show="v.version === node.version">текущая</span>
+                                    </div>
+                                    <p class="mt-1 text-xs text-ink-3" x-text="fmtDateTime(v.created_at)"></p>
+                                    <p class="mt-1 text-xs text-ink-2" x-show="v.change_note" x-text="v.change_note"></p>
+                                    <div class="mt-2 flex gap-3 text-xs" x-show="v.version !== node.version">
+                                        <button type="button" class="text-accent-ink hover:underline" @click="compare(v.version)">Сравнить с текущей</button>
+                                        <button type="button" class="text-ink-3 hover:text-ink" @click="restoreVersion(v.version)">Восстановить</button>
+                                    </div>
+                                </li>
+                            </template>
+                        </ol>
+                        <div class="min-w-0 p-4">
+                            <div class="mb-3 flex flex-wrap items-center gap-2 text-sm">
+                                <span class="text-ink-3">Сравнить</span>
+                                <select class="select w-auto py-1" x-model.number="diffFrom" @change="loadDiff()" aria-label="Версия слева">
+                                    <template x-for="v in versions" :key="v.version"><option :value="v.version" x-text="'v' + v.version" :selected="v.version === diffFrom"></option></template>
+                                </select>
+                                <span class="text-ink-3">→</span>
+                                <select class="select w-auto py-1" x-model="diffTo" @change="loadDiff()" aria-label="Версия справа">
+                                    <option value="">текущая</option>
+                                    <template x-for="v in versions" :key="v.version"><option :value="String(v.version)" x-text="'v' + v.version"></option></template>
+                                </select>
+                                <span class="ml-auto text-xs"><span class="text-ok" x-text="'+' + diffStats.add"></span> <span class="text-danger" x-text="'−' + diffStats.del"></span></span>
+                            </div>
+                            <div class="overflow-x-auto rounded-lg ring-1 ring-line">
+                                <template x-if="!diff.length || (!diffStats.add && !diffStats.del)">
+                                    <p class="p-6 text-center text-sm text-ink-3">Версии совпадают</p>
+                                </template>
+                                <template x-for="row in diffRows()" :key="row.i">
+                                    <div>
+                                        <template x-if="row.gap"><div class="bg-subtle px-3 py-0.5 font-mono text-xs text-ink-3">⋯</div></template>
+                                        <template x-if="!row.gap">
+                                            <div class="diff-line" :class="row.tag === 'insert' ? 'diff-insert' : row.tag === 'delete' ? 'diff-delete' : ''">
+                                                <span class="pr-2 text-right text-ink-3 select-none" x-text="row.old_line || ''"></span>
+                                                <span class="pr-2 text-right text-ink-3 select-none" x-text="row.new_line || ''"></span>
+                                                <span class="select-none" :class="row.tag === 'insert' ? 'text-ok' : 'text-danger'" x-text="row.tag === 'insert' ? '+' : row.tag === 'delete' ? '−' : ''"></span>
+                                                <span class="pr-3 whitespace-pre-wrap break-words" x-text="row.text || ' '"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Посты по версиям -->
+                    <div x-show="tab === 'posts' && !isFolder" x-cloak class="p-5">
+                        <p class="mb-4 text-sm text-ink-2">Посты, которые Claude написал по этому промпту. Сравнивайте, как меняется подача от версии к версии.</p>
+                        <template x-if="!postsByVersion.length">
+                            <p class="rounded-lg bg-subtle p-6 text-center text-sm text-ink-3">По этому промпту ещё нет постов</p>
+                        </template>
+                        <div class="space-y-5">
+                            <template x-for="g in postsByVersion" :key="g.version">
+                                <section>
+                                    <div class="mb-2 flex flex-wrap items-center gap-2">
+                                        <h3 class="text-sm font-semibold" x-text="g.version ? 'Версия ' + g.version : 'Версия не указана'"></h3>
+                                        <span class="text-xs text-ink-3" x-text="g.posts.length + ' пост(ов)'"></span>
+                                        <template x-if="g.rate !== null">
+                                            <span class="inline-flex items-center gap-1.5 text-xs text-ink-2">
+                                                <span class="h-1.5 w-16 overflow-hidden rounded-full bg-line"><span class="block h-full rounded-full bg-series-1" :style="`width:${g.rate}%`"></span></span>
+                                                <span x-text="`принято ${g.rate}% (${g.accepted} из ${g.accepted + g.rejected})`"></span>
+                                            </span>
+                                        </template>
+                                        <button type="button" class="ml-auto text-xs text-accent-ink hover:underline" x-show="g.version && g.version !== node.version" @click="setTab('history'); $nextTick(() => compare(g.version))">diff с текущей</button>
+                                    </div>
+                                    <div class="grid gap-2 md:grid-cols-2">
+                                        <template x-for="p in g.posts" :key="p.id">
+                                            <button type="button" class="rounded-lg p-3 text-left ring-1 ring-line transition hover:bg-subtle hover:ring-line-strong" @click="openPost(p.id)">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="badge" :class="'st-' + statusOf(p).key" x-text="statusOf(p).label"></span>
+                                                    <span class="text-xs text-ink-3" x-text="fmtRelative(p.created_at)"></span>
+                                                </div>
+                                                <p class="mt-1.5 line-clamp-1 text-sm font-medium" x-text="p.title"></p>
+                                                <p class="mt-0.5 line-clamp-2 text-xs text-ink-3" x-text="p.excerpt || ''"></p>
+                                                <p class="mt-1 line-clamp-1 text-xs text-rose-600 dark:text-rose-300" x-show="p.feedback" x-text="'Отзыв: ' + p.feedback"></p>
+                                            </button>
+                                        </template>
+                                    </div>
+                                </section>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Диалог создания -->
+    <div class="fixed inset-0 z-50 grid place-items-center p-4" x-show="dialog === 'create'" x-cloak role="dialog" aria-modal="true">
+        <div class="absolute inset-0 bg-black/40" @click="dialog = null"></div>
+        <form class="card relative w-full max-w-md space-y-4 p-5 shadow-xl" @submit.prevent="createNode()">
+            <h2 class="text-base font-semibold" x-text="dialogForm.kind === 'folder' ? 'Новая папка' : 'Новый промпт'"></h2>
+            <div x-show="dialogForm.kind === 'prompt'">
+                <label class="label" for="d-key">Ключ</label>
+                <input id="d-key" x-ref="dialogFirst" type="text" class="input font-mono" x-model="dialogForm.key" placeholder="go_news_template" spellcheck="false" autocomplete="off">
+                <p class="hint">По нему Claude найдёт промпт: «возьми промпт go_news_template».</p>
+            </div>
+            <div>
+                <label class="label" for="d-title" x-text="dialogForm.kind === 'folder' ? 'Название папки' : 'Название'"></label>
+                <input id="d-title" type="text" class="input" x-model="dialogForm.title" :placeholder="dialogForm.kind === 'folder' ? 'Новости' : 'Go — шаблон новостного поста'">
+            </div>
+            <div>
+                <label class="label" for="d-parent">Папка</label>
+                <select id="d-parent" class="select" x-model="dialogForm.parent_id">
+                    <option value="">Корень</option>
+                    <template x-for="f in folders" :key="f.id"><option :value="f.id" x-text="'— '.repeat(f.depth) + f.title" :selected="f.id === dialogForm.parent_id"></option></template>
+                </select>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" class="btn btn-ghost" @click="dialog = null">Отмена</button>
+                <button type="submit" class="btn btn-primary">Создать</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Диалог перемещения -->
+    <div class="fixed inset-0 z-50 grid place-items-center p-4" x-show="dialog === 'move'" x-cloak role="dialog" aria-modal="true">
+        <div class="absolute inset-0 bg-black/40" @click="dialog = null"></div>
+        <form class="card relative w-full max-w-md space-y-4 p-5 shadow-xl" @submit.prevent="confirmMove()">
+            <h2 class="text-base font-semibold">Переместить «<span x-text="node?.title"></span>»</h2>
+            <select class="select" x-model="moveTarget" aria-label="Папка назначения">
+                <option value="">Корень</option>
+                <template x-for="f in folders.filter((f) => f.id !== node?.id)" :key="f.id"><option :value="f.id" x-text="'— '.repeat(f.depth) + f.title" :selected="f.id === moveTarget"></option></template>
+            </select>
+            <div class="flex justify-end gap-2">
+                <button type="button" class="btn btn-ghost" @click="dialog = null">Отмена</button>
+                <button type="submit" class="btn btn-primary">Переместить</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

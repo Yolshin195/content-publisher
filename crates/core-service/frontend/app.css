@@ -1,0 +1,369 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/forms";
+
+/* Где Tailwind ищет классы: шаблоны, JS и Rust-код (классы статусов формируются там). */
+@source "../templates";
+@source "../static/js";
+@source "../src";
+
+/* Тёмная тема: data-theme ставится скриптом в <head> до отрисовки
+   (по сохранённому выбору или системной настройке). */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* ── Семантические токены: утилиты (bg-surface, text-ink-2, border-line ...)
+   ссылаются на переменные, которые переопределяются для тёмной темы. ── */
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-canvas: var(--cp-canvas);
+  --color-surface: var(--cp-surface);
+  --color-raised: var(--cp-raised);
+  --color-subtle: var(--cp-subtle);
+  --color-line: var(--cp-line);
+  --color-line-strong: var(--cp-line-strong);
+  --color-ink: var(--cp-ink);
+  --color-ink-2: var(--cp-ink-2);
+  --color-ink-3: var(--cp-ink-3);
+  --color-accent: var(--cp-accent);
+  --color-accent-hover: var(--cp-accent-hover);
+  --color-accent-soft: var(--cp-accent-soft);
+  --color-accent-ink: var(--cp-accent-ink);
+  --color-danger: var(--cp-danger);
+  --color-danger-soft: var(--cp-danger-soft);
+  --color-ok: var(--cp-ok);
+  --color-ok-soft: var(--cp-ok-soft);
+  --color-warn: var(--cp-warn);
+  --color-warn-soft: var(--cp-warn-soft);
+
+  /* Серии графиков (проверенная палитра, см. dataviz): синий, оранжевый, бирюзовый. */
+  --color-series-1: var(--cp-series-1);
+  --color-series-2: var(--cp-series-2);
+  --color-series-3: var(--cp-series-3);
+}
+
+:root {
+  color-scheme: light;
+  --cp-canvas: #f6f7f9;
+  --cp-surface: #ffffff;
+  --cp-raised: #ffffff;
+  --cp-subtle: #f1f3f6;
+  --cp-line: #e4e7ec;
+  --cp-line-strong: #cfd4dc;
+  --cp-ink: #111827;
+  --cp-ink-2: #4b5563;
+  --cp-ink-3: #8a93a3;
+  --cp-accent: #4f46e5;
+  --cp-accent-hover: #4338ca;
+  --cp-accent-soft: #eef0ff;
+  --cp-accent-ink: #4338ca;
+  --cp-danger: #d03b3b;
+  --cp-danger-soft: #fdecec;
+  --cp-ok: #0c8a0c;
+  --cp-ok-soft: #e8f6e8;
+  --cp-warn: #b45309;
+  --cp-warn-soft: #fef3c7;
+  --cp-series-1: #2a78d6;
+  --cp-series-2: #eb6834;
+  --cp-series-3: #1baf7a;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-canvas: #0f1115;
+  --cp-surface: #171a20;
+  --cp-raised: #1e222a;
+  --cp-subtle: #20242c;
+  --cp-line: #2a2f39;
+  --cp-line-strong: #3a404c;
+  --cp-ink: #eef0f4;
+  --cp-ink-2: #b4bac6;
+  --cp-ink-3: #7d8594;
+  --cp-accent: #6d67f0;
+  --cp-accent-hover: #827df5;
+  --cp-accent-soft: #23234a;
+  --cp-accent-ink: #b3b0ff;
+  --cp-danger: #e66767;
+  --cp-danger-soft: #3a1d1f;
+  --cp-ok: #3fbf5c;
+  --cp-ok-soft: #16301c;
+  --cp-warn: #f0b429;
+  --cp-warn-soft: #3a2c10;
+  --cp-series-1: #3987e5;
+  --cp-series-2: #d95926;
+  --cp-series-3: #199e70;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-canvas text-ink antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  [x-cloak] {
+    display: none !important;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--cp-accent) 25%, transparent);
+  }
+}
+
+@layer components {
+  /* ── Кнопки ── */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium
+      transition-colors duration-150 select-none disabled:pointer-events-none disabled:opacity-50
+      focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
+  }
+  .btn-sm {
+    @apply px-2.5 py-1.5 text-xs rounded-md;
+  }
+  .btn-primary {
+    @apply bg-accent text-white shadow-sm hover:bg-accent-hover;
+  }
+  .btn-secondary {
+    @apply bg-surface text-ink ring-1 ring-line-strong ring-inset shadow-xs hover:bg-subtle;
+  }
+  .btn-ghost {
+    @apply text-ink-2 hover:bg-subtle hover:text-ink;
+  }
+  .btn-danger {
+    @apply bg-danger text-white shadow-sm hover:opacity-90;
+  }
+  .btn-danger-ghost {
+    @apply text-danger hover:bg-danger-soft;
+  }
+  .btn-ok {
+    @apply bg-ok text-white shadow-sm hover:opacity-90;
+  }
+  .btn-icon {
+    @apply inline-flex size-9 items-center justify-center rounded-lg text-ink-2 transition-colors hover:bg-subtle hover:text-ink;
+  }
+
+  /* ── Поверхности ── */
+  .card {
+    @apply rounded-xl bg-surface ring-1 ring-line shadow-xs;
+  }
+  .card-header {
+    @apply flex items-center justify-between gap-3 border-b border-line px-4 py-3;
+  }
+  .card-title {
+    @apply text-sm font-semibold text-ink;
+  }
+  .section-title {
+    @apply text-xs font-semibold uppercase tracking-wide text-ink-3;
+  }
+
+  /* ── Формы ── */
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-ink;
+  }
+  .hint {
+    @apply mt-1 text-xs text-ink-3;
+  }
+  .input,
+  .select,
+  .textarea {
+    @apply block w-full rounded-lg border-0 bg-surface px-3 py-2 text-sm text-ink shadow-xs ring-1 ring-line-strong ring-inset
+      placeholder:text-ink-3 focus:ring-2 focus:ring-accent focus:ring-inset;
+  }
+  .select {
+    @apply pr-8;
+  }
+  .textarea {
+    @apply leading-relaxed;
+  }
+  .checkbox {
+    @apply size-4 rounded border-line-strong bg-surface text-accent checked:border-accent checked:bg-accent focus:ring-accent;
+  }
+
+  /* ── Бейджи статусов (общий набор для постов) ── */
+  .badge {
+    @apply inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-xs font-medium ring-1 ring-inset;
+  }
+  .st-suggested {
+    @apply bg-amber-50 text-amber-800 ring-amber-600/25 dark:bg-amber-400/10 dark:text-amber-300 dark:ring-amber-400/25;
+  }
+  .st-draft {
+    @apply bg-subtle text-ink-2 ring-line-strong;
+  }
+  .st-scheduled {
+    @apply bg-indigo-50 text-indigo-700 ring-indigo-600/20 dark:bg-indigo-400/10 dark:text-indigo-300 dark:ring-indigo-400/25;
+  }
+  .st-published {
+    @apply bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-400/10 dark:text-emerald-300 dark:ring-emerald-400/25;
+  }
+  .st-failed,
+  .st-partial {
+    @apply bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-400/10 dark:text-red-300 dark:ring-red-400/25;
+  }
+  .st-rejected {
+    @apply bg-rose-50 text-rose-700 ring-rose-600/15 dark:bg-rose-400/10 dark:text-rose-300 dark:ring-rose-400/20;
+  }
+  .st-archived {
+    @apply bg-slate-100 text-slate-600 ring-slate-500/20 dark:bg-slate-400/10 dark:text-slate-300 dark:ring-slate-400/20;
+  }
+  .badge-ai {
+    @apply bg-violet-50 text-violet-700 ring-violet-600/20 dark:bg-violet-400/10 dark:text-violet-300 dark:ring-violet-400/25;
+  }
+  .badge-neutral {
+    @apply bg-subtle text-ink-2 ring-line;
+  }
+
+  /* ── Точки-маркеры статусов (календарь, списки) ── */
+  .dot {
+    @apply inline-block size-2 shrink-0 rounded-full;
+  }
+  .dot-suggested { @apply bg-amber-500; }
+  .dot-draft { @apply bg-slate-400; }
+  .dot-scheduled { @apply bg-indigo-500; }
+  .dot-published { @apply bg-emerald-500; }
+  .dot-failed, .dot-partial { @apply bg-red-500; }
+  .dot-rejected { @apply bg-rose-400; }
+  .dot-archived { @apply bg-slate-500; }
+
+  /* ── Плашки постов в календаре ── */
+  .chip {
+    @apply flex w-full min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-xs leading-tight
+      ring-1 ring-inset transition-shadow hover:shadow-sm cursor-pointer;
+  }
+  .chip-suggested { @apply bg-amber-50 text-amber-900 ring-amber-500/30 dark:bg-amber-400/10 dark:text-amber-100 dark:ring-amber-400/30; }
+  .chip-draft { @apply bg-surface text-ink-2 ring-line-strong border border-dashed border-line-strong ring-0; }
+  .chip-scheduled { @apply bg-indigo-50 text-indigo-900 ring-indigo-500/25 dark:bg-indigo-400/15 dark:text-indigo-100 dark:ring-indigo-400/30; }
+  .chip-published { @apply bg-emerald-50 text-emerald-900 ring-emerald-500/25 dark:bg-emerald-400/10 dark:text-emerald-100 dark:ring-emerald-400/30; }
+  .chip-failed, .chip-partial { @apply bg-red-50 text-red-900 ring-red-500/30 dark:bg-red-400/10 dark:text-red-100 dark:ring-red-400/30; }
+
+  /* ── Навигация ── */
+  .nav-link {
+    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink;
+  }
+  .nav-link-active {
+    @apply bg-accent-soft text-accent-ink hover:bg-accent-soft hover:text-accent-ink;
+  }
+
+  /* ── Сегментированный переключатель ── */
+  .segmented {
+    @apply inline-flex rounded-lg bg-subtle p-0.5 ring-1 ring-line ring-inset;
+  }
+  .segmented > * {
+    @apply rounded-md px-3 py-1.5 text-sm font-medium text-ink-2 transition-colors hover:text-ink;
+  }
+  .segmented > .is-active {
+    @apply bg-surface text-ink shadow-sm ring-1 ring-line;
+  }
+
+  /* ── Вкладки ── */
+  .tabs {
+    @apply flex gap-1 border-b border-line;
+  }
+  .tab {
+    @apply -mb-px border-b-2 border-transparent px-3 py-2 text-sm font-medium text-ink-3 transition-colors hover:text-ink;
+  }
+  .tab.is-active {
+    @apply border-accent text-ink;
+  }
+
+  .kbd {
+    @apply inline-flex min-w-5 items-center justify-center rounded border border-line-strong bg-subtle px-1 font-mono text-[10px] text-ink-3;
+  }
+
+  /* ── Превью поста «как в Telegram» ── */
+  .tg-frame {
+    @apply rounded-2xl p-4;
+    background: #b7d3a8 linear-gradient(160deg, #c4dbb2 0%, #a9c99b 100%);
+  }
+  [data-theme="dark"] .tg-frame {
+    background: #0e1621 linear-gradient(160deg, #11202f 0%, #0b141d 100%);
+  }
+  .tg-bubble {
+    @apply max-w-md overflow-hidden rounded-2xl rounded-bl-md bg-white text-[15px] leading-[1.45] text-[#000] shadow-sm;
+  }
+  [data-theme="dark"] .tg-bubble {
+    @apply bg-[#182533] text-[#f5f5f5];
+  }
+  .tg-text {
+    @apply px-3 pt-2 pb-1 break-words whitespace-pre-wrap;
+  }
+  .tg-text a {
+    @apply text-[#168acd] hover:underline;
+  }
+  [data-theme="dark"] .tg-text a {
+    @apply text-[#6ab3f3];
+  }
+  .tg-text code {
+    @apply rounded bg-black/5 px-1 font-mono text-[13px] text-[#c7254e];
+  }
+  [data-theme="dark"] .tg-text code {
+    @apply bg-white/10 text-[#f29ab0];
+  }
+  .tg-text pre {
+    @apply my-1 overflow-x-auto rounded-md bg-black/5 p-2 font-mono text-[13px] whitespace-pre;
+  }
+  [data-theme="dark"] .tg-text pre {
+    @apply bg-white/5;
+  }
+  .tg-text pre code {
+    @apply bg-transparent p-0 text-inherit;
+  }
+  .tg-text blockquote {
+    @apply my-1 rounded-r-md border-l-[3px] border-[#168acd] bg-[#168acd]/10 py-0.5 pr-2 pl-2;
+  }
+  .tg-text .tg-spoiler,
+  .tg-text tg-spoiler {
+    @apply rounded bg-black/20 text-transparent transition-colors hover:bg-transparent hover:text-inherit;
+  }
+  .tg-meta {
+    @apply flex justify-end gap-1 px-3 pb-1.5 text-[11px] text-[#8a9aa9];
+  }
+  .tg-button {
+    @apply mt-1 block w-full rounded-lg bg-white/60 py-2 text-center text-sm font-medium text-[#1b5e20] backdrop-blur;
+  }
+  [data-theme="dark"] .tg-button {
+    @apply bg-[#182533]/80 text-[#e9f0f6];
+  }
+
+  /* ── Diff версий промптов ── */
+  .diff-line {
+    @apply grid grid-cols-[3rem_3rem_1.25rem_1fr] font-mono text-xs leading-5;
+  }
+  .diff-insert {
+    @apply bg-emerald-50 dark:bg-emerald-400/10;
+  }
+  .diff-delete {
+    @apply bg-red-50 dark:bg-red-400/10;
+  }
+
+  /* ── Текст промпта в режиме просмотра ── */
+  .prompt-text {
+    @apply font-mono text-[13px] leading-relaxed whitespace-pre-wrap break-words text-ink;
+  }
+
+  /* Тонкий скроллбар для панелей */
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--cp-line-strong) transparent;
+  }
+}
+
+/* Подсказка-тултип для графиков и иконок (позиционируется скриптом). */
+#tooltip {
+  @apply pointer-events-none fixed z-[100] max-w-xs rounded-lg bg-ink px-2.5 py-1.5 text-xs text-surface shadow-lg;
+}
+
+/* Тепловая карта: последовательная шкала одного оттенка (синий), свои шаги для тёмной темы. */
+@layer components {
+  .heat-0 { background: var(--cp-subtle); }
+  .heat-1 { background: #b7d3f6; }
+  .heat-2 { background: #6da7ec; }
+  .heat-3 { background: #2a78d6; }
+  .heat-4 { background: #184f95; }
+  [data-theme="dark"] .heat-1 { background: #184f95; }
+  [data-theme="dark"] .heat-2 { background: #256abf; }
+  [data-theme="dark"] .heat-3 { background: #3987e5; }
+  [data-theme="dark"] .heat-4 { background: #86b6ef; }
+}

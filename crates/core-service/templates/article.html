@@ -1,0 +1,11 @@
+{% extends "layout.html" %}
+{% block title %}{% if article_id.is_empty() %}Новый пост{% else %}Пост{% endif %}{% endblock %}
+{% block mobile_title %}Пост{% endblock %}
+{% block width %}max-w-[90rem]{% endblock %}
+{% block content %}
+<div class="-mx-4 -my-6 sm:-mx-6 lg:-mx-8 lg:-my-8" x-data="postEditor({ mode: 'page', id: '{{ article_id }}' || null, date: '{{ date }}' || null })" @keydown.window="onKey($event)">
+    <div class="flex min-h-[calc(100vh-3.25rem)] flex-col lg:min-h-screen">
+        {% include "partials/editor.html" %}
+    </div>
+</div>
+{% endblock %}

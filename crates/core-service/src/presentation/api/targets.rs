@@ -35,7 +35,7 @@ pub async fn create_target(
             platform,
             external_id: body.external_id,
             display_name: body.display_name,
-            config: body.config,
+            config: if body.config.is_null() { serde_json::json!({}) } else { body.config },
         })
         .await
         .map_err(AppError::from)?;

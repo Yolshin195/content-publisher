@@ -1,12 +1,20 @@
+pub mod analytics_service;
 pub mod article_service;
 pub mod calendar_service;
+pub mod interest_service;
 pub mod ports;
+pub mod prompt_service;
 pub mod publication_orchestrator;
 pub mod scheduling_service;
+pub mod suggestion_service;
 pub mod target_service;
 
+pub use analytics_service::AnalyticsService;
 pub use article_service::ArticleService;
-pub use calendar_service::{CalendarService, DayArticleSummary, DaySummary};
+pub use calendar_service::{CalendarService, DaySummary};
+pub use interest_service::InterestService;
+pub use prompt_service::PromptService;
 pub use publication_orchestrator::PublicationOrchestrator;
 pub use scheduling_service::SchedulingService;
+pub use suggestion_service::{SuggestionInput, SuggestionService};
 pub use target_service::TargetService;

@@ -88,8 +88,9 @@ COPY --from=builder /app/target/release/${APP_NAME} ./service
 # компиляции, поэтому каталог на рантайме строго не обязателен — копируется
 # для консистентности между сервисами и на случай будущего перехода на
 # runtime-миграции.
-# Статика (CSS/JS календаря core-service) — наоборот, ОБЯЗАТЕЛЬНА в рантайме:
-# раздаётся через tower-http ServeDir с диска, а не встраивается в бинарник.
+# Статика (собранный Tailwind CSS, JS, иконки core-service) — наоборот, ОБЯЗАТЕЛЬНА
+# в рантайме: раздаётся через tower-http ServeDir с диска, а не встраивается в бинарник.
+# CSS собирается заранее (make css) и лежит в git, поэтому Node.js в образе не нужен.
 # Для сервисов без миграций/статики (telegram-publisher, будущие Publisher-ы)
 # builder-стадия гарантированно создала пустые каталоги — COPY не упадёт.
 COPY --from=builder /app/crates/${APP_NAME}/migrations ./migrations
@@ -98,10 +99,7 @@ COPY --from=builder /app/crates/${APP_NAME}/static ./static
 # Healthcheck читает PORT из окружения контейнера (задаётся в docker-compose
 # для каждого сервиса отдельно) — поэтому используется CMD-SHELL, а не ARG,
 # т.к. ARG фиксируется на build-time и не годится для общего образа.
-# ВАЖНО: telegram-publisher уже отдаёт GET /health (200 OK). core-service пока
-# такого эндпоинта не имеет — при первом деплое core-service нужно либо
-# добавить в него /health, либо временно указать в docker-compose другой путь
-# для проверки (например, "/docs").
+# Оба сервиса отдают GET /health (core-service заодно проверяет БД).
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=5 \
     CMD curl -f "http://localhost:${PORT:-8080}/health" || exit 1
 

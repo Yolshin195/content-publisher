@@ -1,0 +1,108 @@
+{% extends "layout.html" %}
+{% block title %}Все посты{% endblock %}
+{% block mobile_title %}Все посты{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-end gap-4">
+    <div class="flex-1">
+        <h1 class="text-2xl font-semibold tracking-tight">Все посты</h1>
+        <p class="mt-1 text-sm text-ink-2">{{ total_label }} по выбранным условиям</p>
+    </div>
+    <button type="button" class="btn btn-primary" onclick="newPost()"><svg class="size-4"><use href="/static/icons.svg#i-plus"/></svg> Новый пост</button>
+</div>
+
+<form method="get" action="/posts" class="card mt-6 flex flex-wrap items-end gap-3 p-3" x-data @change="$el.requestSubmit()">
+    <div class="relative min-w-56 flex-1">
+        <label class="sr-only" for="q">Поиск</label>
+        <svg class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-3"><use href="/static/icons.svg#i-search"/></svg>
+        <input id="q" type="search" name="q" value="{{ q }}" class="input pl-9" placeholder="Поиск по заголовку и тексту" @change.stop>
+    </div>
+    <div>
+        <label class="sr-only" for="state">Статус</label>
+        <select id="state" name="state" class="select">
+            <option value="">Все статусы</option>
+            <option value="suggested" {% if state == "suggested" %}selected{% endif %}>Предложения</option>
+            <option value="draft" {% if state == "draft" %}selected{% endif %}>Черновики</option>
+            <option value="scheduled" {% if state == "scheduled" %}selected{% endif %}>Запланированные и опубликованные</option>
+            <option value="rejected" {% if state == "rejected" %}selected{% endif %}>Отклонённые</option>
+            <option value="archived" {% if state == "archived" %}selected{% endif %}>Архив</option>
+        </select>
+    </div>
+    <div>
+        <label class="sr-only" for="origin">Автор</label>
+        <select id="origin" name="origin" class="select">
+            <option value="">Все авторы</option>
+            <option value="ai" {% if origin == "ai" %}selected{% endif %}>Claude</option>
+            <option value="manual" {% if origin == "manual" %}selected{% endif %}>Вручную</option>
+        </select>
+    </div>
+    <div>
+        <label class="sr-only" for="tag">Тег</label>
+        <select id="tag" name="tag" class="select">
+            <option value="">Все теги</option>
+            {% for (t, c) in tags %}<option value="{{ t }}" {% if tag == t.as_str() %}selected{% endif %}>#{{ t }} ({{ c }})</option>{% endfor %}
+        </select>
+    </div>
+    <div>
+        <label class="sr-only" for="sort">Сортировка</label>
+        <select id="sort" name="sort" class="select">
+            <option value="updated" {% if sort == "updated" %}selected{% endif %}>Недавно изменённые</option>
+            <option value="created" {% if sort == "created" %}selected{% endif %}>Недавно созданные</option>
+            <option value="scheduled_desc" {% if sort == "scheduled_desc" %}selected{% endif %}>По дате публикации ↓</option>
+            <option value="scheduled" {% if sort == "scheduled" %}selected{% endif %}>По дате публикации ↑</option>
+        </select>
+    </div>
+    <button class="btn btn-secondary" type="submit">Найти</button>
+    {% if !q.is_empty() || !state.is_empty() || !origin.is_empty() || !tag.is_empty() %}<a href="/posts" class="btn btn-ghost">Сбросить</a>{% endif %}
+</form>
+
+<div class="card mt-4 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="border-b border-line bg-subtle/60 text-left text-xs font-medium text-ink-3">
+                <tr>
+                    <th class="px-4 py-2.5 font-medium">Пост</th>
+                    <th class="px-4 py-2.5 font-medium">Статус</th>
+                    <th class="hidden px-4 py-2.5 font-medium md:table-cell">Дата публикации</th>
+                    <th class="hidden px-4 py-2.5 font-medium lg:table-cell">Промпт</th>
+                    <th class="hidden px-4 py-2.5 font-medium sm:table-cell">Изменён</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-line">
+                {% for p in rows %}
+                <tr class="cursor-pointer hover:bg-subtle" onclick="openPost('{{ p.id }}')">
+                    <td class="max-w-xl px-4 py-3">
+                        <a href="/articles/{{ p.id }}" class="font-medium hover:text-accent-ink" onclick="event.preventDefault()">{{ p.title }}</a>
+                        <p class="mt-0.5 line-clamp-1 text-xs text-ink-3">{{ p.snippet }}</p>
+                        {% if !p.tags.is_empty() %}<p class="mt-1 text-xs text-ink-3">{% for t in p.tags %}#{{ t }} {% endfor %}</p>{% endif %}
+                    </td>
+                    <td class="px-4 py-3 align-top">
+                        <div class="flex flex-col items-start gap-1">
+                            <span class="badge st-{{ p.status }}">{{ p.status_label }}</span>
+                            {% if p.is_ai %}<span class="badge badge-ai">Claude</span>{% endif %}
+                        </div>
+                    </td>
+                    <td class="hidden px-4 py-3 align-top whitespace-nowrap text-ink-2 md:table-cell">
+                        {% if p.when.is_empty() %}<span class="text-ink-3">—</span>{% else %}{{ p.when }}{% endif %}
+                        {% if let Some(link) = p.permalink %}<a href="{{ link }}" target="_blank" rel="noopener" class="ml-1 text-accent-ink" onclick="event.stopPropagation()" aria-label="Открыть в Telegram">↗</a>{% endif %}
+                    </td>
+                    <td class="hidden px-4 py-3 align-top text-xs text-ink-2 lg:table-cell">{% if let Some(pr) = p.prompt %}{{ pr }}{% else %}<span class="text-ink-3">—</span>{% endif %}</td>
+                    <td class="hidden px-4 py-3 align-top whitespace-nowrap text-ink-3 sm:table-cell">{{ p.updated }}</td>
+                </tr>
+                {% endfor %}
+                {% if rows.is_empty() %}
+                <tr><td colspan="5" class="px-4 py-16 text-center text-sm text-ink-3">Ничего не найдено</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+    {% if pages > 1 %}
+    <div class="flex items-center justify-between border-t border-line px-4 py-3 text-sm">
+        <span class="text-ink-3">Страница {{ page }} из {{ pages }}</span>
+        <div class="flex gap-2">
+            {% if let Some(u) = prev_url %}<a href="{{ u }}" class="btn btn-secondary btn-sm">← Назад</a>{% endif %}
+            {% if let Some(u) = next_url %}<a href="{{ u }}" class="btn btn-secondary btn-sm">Вперёд →</a>{% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

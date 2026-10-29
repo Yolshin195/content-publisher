@@ -19,6 +19,8 @@ impl IntoResponse for AppError {
             DomainError::ArticleNotFound => (StatusCode::NOT_FOUND, "ARTICLE_NOT_FOUND"),
             DomainError::TargetNotFound => (StatusCode::NOT_FOUND, "TARGET_NOT_FOUND"),
             DomainError::TaskNotFound => (StatusCode::NOT_FOUND, "TASK_NOT_FOUND"),
+            DomainError::PromptNotFound(_) => (StatusCode::NOT_FOUND, "PROMPT_NOT_FOUND"),
+            DomainError::Conflict(_) => (StatusCode::CONFLICT, "CONFLICT"),
             DomainError::Validation(_) => (StatusCode::UNPROCESSABLE_ENTITY, "VALIDATION_ERROR"),
             DomainError::InvalidStateTransition(_) => (StatusCode::CONFLICT, "INVALID_STATE_TRANSITION"),
             DomainError::Database(_) => (StatusCode::INTERNAL_SERVER_ERROR, "DATABASE_ERROR"),
@@ -26,7 +28,11 @@ impl IntoResponse for AppError {
         };
 
         let message = self.0.to_string();
-        tracing::error!(code = code, message = %message, "request failed");
+        if status.is_server_error() {
+            tracing::error!(code = code, message = %message, "request failed");
+        } else {
+            tracing::info!(code = code, message = %message, "request rejected");
+        }
 
         (status, Json(ErrorResponse { error: ErrorBody { code: code.to_string(), message } })).into_response()
     }

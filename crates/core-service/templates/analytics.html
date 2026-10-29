@@ -1,0 +1,230 @@
+{% extends "layout.html" %}
+{% block title %}Аналитика{% endblock %}
+{% block mobile_title %}Аналитика{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-end gap-4">
+    <div class="flex-1">
+        <h1 class="text-2xl font-semibold tracking-tight">Аналитика</h1>
+        <p class="mt-1 text-sm text-ink-2">Как работает конвейер: что выходит, что предлагает Claude и какие промпты дают результат. Время — {{ shell.tz }}.</p>
+    </div>
+</div>
+
+<div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+    {% for k in kpis %}
+    <div class="card p-4">
+        <p class="text-xs font-medium text-ink-3">{{ k.label }}</p>
+        <p class="mt-2 text-3xl font-semibold tracking-tight tabular-nums">{{ k.value }}</p>
+        <p class="mt-1 text-xs text-ink-3">{{ k.hint }}</p>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+    <!-- Публикации по неделям: одна серия, подпись — заголовок -->
+    <section class="card p-5" aria-labelledby="pub-title">
+        <div class="flex items-baseline justify-between">
+            <h2 id="pub-title" class="card-title">Опубликовано постов по неделям</h2>
+            <span class="text-xs text-ink-3">12 недель</span>
+        </div>
+        <div class="mt-5 grid grid-cols-[2rem_minmax(0,1fr)] gap-2">
+            <div class="flex h-44 flex-col justify-between text-right text-[11px] tabular-nums text-ink-3"><span>{{ week_max }}</span><span>0</span></div>
+            <div class="relative flex h-44 items-end gap-1 border-b border-line">
+                <div class="pointer-events-none absolute inset-x-0 top-0 border-t border-line/70"></div>
+                {% for w in weeks %}
+                <div class="group flex h-full flex-1 flex-col items-center justify-end" data-tip="{{ w.tip }}" tabindex="0">
+                    {% if loop.last && w.value > 0 %}<span class="mb-1 text-[11px] font-medium tabular-nums text-ink-2">{{ w.value }}</span>{% endif %}
+                    <div class="w-full max-w-6 rounded-t bg-series-1 transition-opacity group-hover:opacity-80" style="height: {{ w.pct }}%; min-height: {% if w.value > 0 %}3px{% else %}0{% endif %}"></div>
+                </div>
+                {% endfor %}
+            </div>
+            <span></span>
+            <div class="flex gap-1 text-[10px] text-ink-3">
+                {% for w in weeks %}<span class="flex-1 truncate text-center">{% if loop.index0 % 2 == 1 || loop.last %}{{ w.label }}{% endif %}</span>{% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <!-- Создано: две серии — легенда обязательна -->
+    <section class="card p-5" aria-labelledby="created-title">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 id="created-title" class="card-title">Создано постов по неделям</h2>
+            <div class="flex items-center gap-3 text-xs text-ink-2">
+                <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-series-1"></span>от Claude</span>
+                <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-series-2"></span>вручную</span>
+            </div>
+        </div>
+        <div class="mt-5 grid grid-cols-[2rem_minmax(0,1fr)] gap-2">
+            <div class="flex h-44 flex-col justify-between text-right text-[11px] tabular-nums text-ink-3"><span>{{ created_max }}</span><span>0</span></div>
+            <div class="relative flex h-44 items-end gap-1 border-b border-line">
+                <div class="pointer-events-none absolute inset-x-0 top-0 border-t border-line/70"></div>
+                {% for w in weeks %}
+                <div class="group flex h-full flex-1 flex-col items-center justify-end" data-tip="{{ w.created_tip }}" tabindex="0">
+                    <div class="flex w-full max-w-6 flex-col justify-end gap-0.5 transition-opacity group-hover:opacity-80" style="height: {{ w.ai_pct + w.manual_pct }}%">
+                        {% if w.manual_pct > 0 %}<div class="rounded-t bg-series-2" style="flex: {{ w.manual_pct }} 1 0; min-height: 2px"></div>{% endif %}
+                        {% if w.ai_pct > 0 %}<div class="bg-series-1 {% if w.manual_pct == 0 %}rounded-t{% endif %}" style="flex: {{ w.ai_pct }} 1 0; min-height: 2px"></div>{% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <span></span>
+            <div class="flex gap-1 text-[10px] text-ink-3">
+                {% for w in weeks %}<span class="flex-1 truncate text-center">{% if loop.index0 % 2 == 1 || loop.last %}{{ w.label }}{% endif %}</span>{% endfor %}
+            </div>
+        </div>
+    </section>
+</div>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <!-- Эффективность промптов -->
+    <section class="card overflow-hidden" aria-labelledby="prompts-title">
+        <div class="card-header">
+            <h2 id="prompts-title" class="card-title">Промпты и их версии</h2>
+            <span class="text-xs text-ink-3">доля принятых среди рассмотренных</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="border-b border-line text-left text-xs text-ink-3">
+                    <tr>
+                        <th class="px-4 py-2 font-medium">Промпт</th>
+                        <th class="px-3 py-2 text-right font-medium">Постов</th>
+                        <th class="px-3 py-2 text-right font-medium">Ждут</th>
+                        <th class="px-3 py-2 text-right font-medium">Принято</th>
+                        <th class="px-3 py-2 text-right font-medium">Откл.</th>
+                        <th class="px-3 py-2 text-right font-medium">Вышло</th>
+                        <th class="w-40 px-4 py-2 font-medium">Принятие</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-line">
+                    {% for p in prompts %}
+                    <tr class="hover:bg-subtle">
+                        <td class="px-4 py-2.5"><a href="/prompts?key={{ p.key }}" class="font-mono text-[13px] hover:text-accent-ink">{{ p.key }}</a> <span class="text-xs text-ink-3">{{ p.version }}</span></td>
+                        <td class="px-3 py-2.5 text-right tabular-nums">{{ p.total }}</td>
+                        <td class="px-3 py-2.5 text-right tabular-nums text-ink-2">{{ p.pending }}</td>
+                        <td class="px-3 py-2.5 text-right tabular-nums text-ink-2">{{ p.accepted }}</td>
+                        <td class="px-3 py-2.5 text-right tabular-nums text-ink-2">{{ p.rejected }}</td>
+                        <td class="px-3 py-2.5 text-right tabular-nums text-ink-2">{{ p.published }}</td>
+                        <td class="px-4 py-2.5">
+                            <div class="flex items-center gap-2">
+                                <span class="h-1.5 flex-1 overflow-hidden rounded-full bg-series-1/15"><span class="block h-full rounded-full bg-series-1" style="width: {{ p.rate }}%"></span></span>
+                                <span class="w-9 text-right text-xs tabular-nums text-ink-2">{{ p.rate_label }}</span>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if prompts.is_empty() %}<tr><td colspan="7" class="px-4 py-10 text-center text-sm text-ink-3">Пока нет постов, созданных по промптам</td></tr>{% endif %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <div class="space-y-6">
+        <!-- Решения по предложениям: одна полоса из трёх частей + легенда -->
+        <section class="card p-5" aria-labelledby="funnel-title">
+            <h2 id="funnel-title" class="card-title">Предложения Claude</h2>
+            {% if funnel_total > 0 %}
+            <div class="mt-4 flex h-3 gap-0.5 overflow-hidden rounded-full">
+                {% for (label, color, count, pct) in funnel %}{% if *count > 0 %}<div class="{{ color }}" style="flex: {{ count }} 1 0" data-tip="{{ label }}: {{ count }} ({{ pct }}%)"></div>{% endif %}{% endfor %}
+            </div>
+            <ul class="mt-4 space-y-2 text-sm">
+                {% for (label, color, count, pct) in funnel %}
+                <li class="flex items-center gap-2"><span class="size-2.5 rounded-sm {{ color }}"></span><span class="flex-1 text-ink-2">{{ label }}</span><span class="font-medium tabular-nums">{{ count }}</span><span class="w-10 text-right text-xs tabular-nums text-ink-3">{{ pct }}%</span></li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="mt-3 text-sm text-ink-3">Предложений ещё не было.</p>
+            {% endif %}
+        </section>
+
+        <section class="card p-5" aria-labelledby="tags-title">
+            <h2 id="tags-title" class="card-title">Популярные теги</h2>
+            <ul class="mt-4 space-y-2">
+                {% for t in tags %}
+                <li class="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)_2rem] items-center gap-2 text-sm" data-tip="#{{ t.tag }}: {{ t.count }}">
+                    <a href="/posts?tag={{ t.tag }}" class="truncate text-ink-2 hover:text-ink">#{{ t.tag }}</a>
+                    <span class="h-2 overflow-hidden rounded-full"><span class="block h-full rounded-r-full bg-series-1" style="width: {{ t.pct }}%"></span></span>
+                    <span class="text-right text-xs tabular-nums text-ink-3">{{ t.count }}</span>
+                </li>
+                {% endfor %}
+                {% if tags.is_empty() %}<li class="text-sm text-ink-3">Тегов пока нет</li>{% endif %}
+            </ul>
+        </section>
+    </div>
+</div>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+    <section class="card p-5" aria-labelledby="heat-title">
+        <div class="flex items-baseline justify-between">
+            <h2 id="heat-title" class="card-title">Когда выходят посты</h2>
+            <span class="text-xs text-ink-3">день недели × час, всего {{ heat_total }}</span>
+        </div>
+        <div class="mt-4 overflow-x-auto">
+            <div class="min-w-[560px] pr-3">
+                {% for row in heat %}
+                <div class="flex items-center gap-[2px] py-[1px]">
+                    <span class="w-7 shrink-0 text-[11px] text-ink-3">{{ row.label }}</span>
+                    {% for c in row.cells %}<span class="heat heat-{{ c.level }} h-4 flex-1 rounded-[3px]" data-tip="{{ c.tip }}"></span>{% endfor %}
+                </div>
+                {% endfor %}
+                <div class="mt-1 flex gap-[2px] pl-7 text-[10px] text-ink-3">
+                    {% for h in 0..24 %}<span class="flex-1 text-center">{% if h % 3 == 0 %}{{ h }}{% endif %}</span>{% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="mt-3 flex items-center gap-1.5 text-[11px] text-ink-3">
+            меньше <span class="heat heat-0 size-3 rounded-sm"></span><span class="heat heat-1 size-3 rounded-sm"></span><span class="heat heat-2 size-3 rounded-sm"></span><span class="heat heat-3 size-3 rounded-sm"></span><span class="heat heat-4 size-3 rounded-sm"></span> больше
+        </div>
+    </section>
+
+    <section class="card overflow-hidden" aria-labelledby="fail-title">
+        <div class="card-header">
+            <h2 id="fail-title" class="card-title">Ошибки публикации</h2>
+            {% if !failures.is_empty() %}<span class="badge st-failed"><svg class="size-3"><use href="/static/icons.svg#i-alert"/></svg> {{ failures.len() }}</span>{% endif %}
+        </div>
+        <ul class="divide-y divide-line">
+            {% for f in failures %}
+            <li>
+                <button type="button" class="w-full px-4 py-3 text-left hover:bg-subtle" onclick="openPost('{{ f.article_id }}')">
+                    <span class="flex items-center gap-2 text-sm"><span class="flex-1 truncate font-medium">{{ f.title }}</span><span class="text-xs text-ink-3">{{ f.when }}</span></span>
+                    <span class="mt-0.5 block text-xs text-ink-3">{{ f.target }}</span>
+                    <span class="mt-1 line-clamp-2 block font-mono text-xs text-danger">{{ f.error }}</span>
+                </button>
+            </li>
+            {% endfor %}
+            {% if failures.is_empty() %}<li class="flex items-center gap-2 px-4 py-8 text-sm text-ink-3"><svg class="size-4 text-ok"><use href="/static/icons.svg#i-check"/></svg> Ошибок нет</li>{% endif %}
+        </ul>
+    </section>
+</div>
+
+<section class="card mt-6 overflow-hidden" aria-labelledby="int-title">
+    <div class="card-header">
+        <h2 id="int-title" class="card-title">История интересов</h2>
+        <span class="text-xs text-ink-3">снимки, которые Claude делает по вашим чатам</span>
+    </div>
+    <ol class="divide-y divide-line">
+        {% for s in snapshots %}
+        <li class="grid gap-3 px-5 py-4 md:grid-cols-[8rem_minmax(0,1fr)]">
+            <span class="text-sm text-ink-3">{{ s.when }}</span>
+            <div>
+                {% if !s.summary.is_empty() %}<p class="text-sm text-ink-2">{{ s.summary }}</p>{% endif %}
+                <div class="mt-2 flex flex-wrap gap-1.5">
+                    {% for t in s.topics %}<span class="badge badge-neutral" data-tip="{% if t.note.is_empty() %}вес {{ t.weight }}/10{% else %}{{ t.note }} · вес {{ t.weight }}/10{% endif %}">{{ t.name }} <span class="text-ink-3">{{ t.weight }}</span></span>{% endfor %}
+                </div>
+            </div>
+        </li>
+        {% endfor %}
+        {% if snapshots.is_empty() %}<li class="px-5 py-8 text-center text-sm text-ink-3">Снимков пока нет — их создаёт задача «интересы из чатов» (см. Настройки → Claude)</li>{% endif %}
+    </ol>
+</section>
+
+<details class="card mt-6">
+    <summary class="cursor-pointer px-5 py-3 text-sm font-medium text-ink-2">Данные графиков таблицей</summary>
+    <div class="overflow-x-auto border-t border-line">
+        <table class="w-full text-sm">
+            <thead class="text-left text-xs text-ink-3"><tr><th class="px-5 py-2 font-medium">Неделя</th><th class="px-3 py-2 text-right font-medium">Опубликовано</th><th class="px-5 py-2 font-medium">Подробно</th></tr></thead>
+            <tbody class="divide-y divide-line">
+                {% for w in weeks %}<tr><td class="px-5 py-1.5">{{ w.label }}</td><td class="px-3 py-1.5 text-right tabular-nums">{{ w.value }}</td><td class="px-5 py-1.5 text-ink-3">{{ w.created_tip }}</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</details>
+{% endblock %}

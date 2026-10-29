@@ -1,0 +1,17 @@
+{
+  "name": "content-publisher-frontend",
+  "private": true,
+  "description": "Сборка CSS (Tailwind) и вендоринг Alpine.js для веб-интерфейса core-service. Результат коммитится в ../static, поэтому Docker-сборке Node не нужен.",
+  "scripts": {
+    "build": "npm run css && npm run vendor",
+    "css": "tailwindcss -i ./app.css -o ../static/css/app.css --minify",
+    "watch": "tailwindcss -i ./app.css -o ../static/css/app.css --watch",
+    "vendor": "node -e \"require('fs').mkdirSync('../static/vendor',{recursive:true});require('fs').copyFileSync('node_modules/alpinejs/dist/cdn.min.js','../static/vendor/alpine.min.js')\""
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "4.1.11",
+    "@tailwindcss/forms": "0.5.10",
+    "tailwindcss": "4.1.11",
+    "alpinejs": "3.14.9"
+  }
+}
